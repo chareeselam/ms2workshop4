@@ -3,246 +3,167 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Cortex — Cognitive Load Intelligence</title>
+  <title>PetLab — Build a Tiny Buddy</title>
   <link href="reset.css" rel="stylesheet">
 	<link href="style.css" rel="stylesheet">
-  <script defer src="app.js"></script>
+  <!-- <script defer src="script.js"></script> -->
 </head>
 
 <body>
-  <div class="bg">
-    <div class="noise"></div>
-    <div class="glow g1"></div>
-    <div class="glow g2"></div>
-  </div>
+    <div class="bg" aria-hidden="true"></div>
 
-  <header class="topbar">
-    <div class="brand">
-      <div class="mark" aria-hidden="true"></div>
-      <div class="brandtext">
-        <div class="name">Cortex</div>
-        <div class="tag">Cognitive Load Intelligence</div>
+    <header class="topbar">
+      <div class="brand">
+        <div class="mark" aria-hidden="true"></div>
+        <div>
+          <h1>PetLab</h1>
+          <p>Create a tiny buddy. Give it vibes. Export it.</p>
+        </div>
       </div>
-    </div>
-    <div class="status" id="statusPill">
-      <span class="dot"></span>
-      <span id="statusText">System ready</span>
-    </div>
-  </header>
 
-  <main class="wrap">
-    <section class="hero">
-      <h1>Model your cognitive system.</h1>
-      <p>
-        Cortex transforms daily signals into a transparent model of mental load, fragmentation, and recovery risk.
-        No task lists. No guilt. Just system intelligence.
-      </p>
-    </section>
+      <div class="actions">
+        <button id="randomize" class="btn">Randomize</button>
+        <button id="save" class="btn">Save</button>
+        <button id="export" class="btn primary">Export PNG</button>
+      </div>
+    </header>
 
-    <section class="grid">
-      <!-- INPUTS -->
-      <section class="card inputs">
-        <div class="cardhead">
-          <h2>Signals</h2>
-          <p>Update inputs to recalculate your model.</p>
+    <main class="shell">
+      <section class="panel creator">
+        <h2>Avatar Builder</h2>
+
+        <div class="field">
+          <label for="name">Pet name</label>
+          <input id="name" type="text" placeholder="e.g., Momo" maxlength="18" />
         </div>
 
-        <form id="signalsForm" class="form" autocomplete="off">
-          <div class="row">
-            <label>
-              <span>Meeting hours</span>
-              <input type="number" min="0" step="0.5" id="meetingHours" value="3.5" />
-            </label>
-
-            <label>
-              <span>Deep work hours</span>
-              <input type="number" min="0" step="0.5" id="deepWorkHours" value="2.5" />
-            </label>
+        <div class="grid2">
+          <div class="field">
+            <label for="species">Species</label>
+            <select id="species">
+              <option value="blob" selected>Blob</option>
+              <option value="cat">Cat</option>
+              <option value="bunny">Bunny</option>
+              <option value="alien">Alien</option>
+              <option value="dog">Dog</option>
+              <option value="turtle">Turtle</option>
+              <option value="frog">Frog</option>
+            </select>
           </div>
 
-          <div class="row">
-            <label>
-              <span>Context switches / day</span>
-              <input type="number" min="0" step="1" id="contextSwitches" value="10" />
-            </label>
-
-            <label>
-              <span>Sleep hours</span>
-              <input type="number" min="0" max="12" step="0.5" id="sleepHours" value="6.5" />
-            </label>
+          <div class="field">
+            <label for="accessory">Accessory</label>
+            <select id="accessory">
+              <option value="none" selected>None</option>
+              <option value="bow">Bow</option>
+              <option value="goggles">Goggles</option>
+              <option value="halo">Halo</option>
+              <option value="backpack">Backpack</option>
+              <option value="crown">Crown</option>
+              <option value="flower">Flower</option>
+              <option value="scarf">Scarf</option>
+              <option value="glasses">Round Glasses</option>
+            </select>
           </div>
 
-          <div class="row">
-            <label class="range">
-              <span>Deadline intensity <em id="deadlineLabel">3</em></span>
-              <input type="range" min="1" max="5" step="1" id="deadlineIntensity" value="3" />
-            </label>
-
-            <label class="range">
-              <span>Energy level <em id="energyLabel">3</em></span>
-              <input type="range" min="1" max="5" step="1" id="energyLevel" value="3" />
-            </label>
+          <div class="field">
+            <label for="bodyColor">Body color</label>
+            <input id="bodyColor" type="color" value="#f6a6ff" />
           </div>
 
-          <div class="btnrow">
-            <button type="button" class="btn ghost" id="randomizeBtn">Use sample week</button>
-            <button type="button" class="btn" id="resetBtn">Reset</button>
+          <div class="field">
+            <label for="accentColor">Accent</label>
+            <input id="accentColor" type="color" value="#7cf7ff" />
           </div>
 
-          <div class="smallnote">
-            Deterministic model. No external APIs. Insights are generated from computed metrics only.
+          <div class="field">
+            <label for="eyeStyle">Eyes</label>
+            <select id="eyeStyle">
+              <option value="dot" selected>Dot</option>
+              <option value="sparkle">Sparkle</option>
+              <option value="sleepy">Sleepy</option>
+              <option value="star">Star</option>
+            </select>
           </div>
-        </form>
-      </section>
 
-      <!-- DASHBOARD -->
-      <section class="card dashboard">
-        <div class="cardhead">
-          <h2>System model</h2>
-          <p>Live metrics + 7-day trajectory.</p>
+          <div class="field">
+            <label for="mouthStyle">Mouth</label>
+            <select id="mouthStyle">
+              <option value="smile" selected>Smile</option>
+              <option value="tiny">Tiny</option>
+              <option value="o">O</option>
+              <option value="smirk">Smirk</option>
+            </select>
+          </div>
         </div>
 
-        <div class="dashgrid">
-          <div class="dialwrap">
-            <div class="dial" id="loadDial" role="img" aria-label="Cognitive load dial">
-              <svg viewBox="0 0 120 120">
-                <defs>
-                  <linearGradient id="ring" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%"/>
-                    <stop offset="100%"/>
-                  </linearGradient>
-                </defs>
+        <div class="divider"></div>
 
-                <circle class="ringbg" cx="60" cy="60" r="44"></circle>
-                <circle class="ringfg" cx="60" cy="60" r="44"></circle>
-              </svg>
+        <h2>Vibes</h2>
 
-              <div class="dialcontent">
-                <div class="dialnum" id="loadScore">0</div>
-                <div class="dialcap">Cognitive Load</div>
-              </div>
-            </div>
-
-            <div class="pillrow">
-              <div class="pill">
-                <div class="pillk">Fragmentation</div>
-                <div class="pillv" id="fragValue">—</div>
-              </div>
-              <div class="pill">
-                <div class="pillk">Deep Work Ratio</div>
-                <div class="pillv" id="deepRatioValue">—</div>
-              </div>
-            </div>
+        <div class="field">
+          <div class="row">
+            <label for="calm">Calm ↔ Chaos</label>
+            <span class="chip" id="calmLabel">Balanced</span>
           </div>
+          <input id="calm" type="range" min="0" max="100" value="50" />
+        </div>
 
-          <div class="meters">
-            <div class="meter">
-              <div class="meterhead">
-                <span>Fragmentation Index</span>
-                <span class="mono" id="fragMono">0.00</span>
-              </div>
-              <div class="bar">
-                <div class="fill" id="fragFill"></div>
-              </div>
-              <div class="meterhint" id="fragHint">—</div>
-            </div>
-
-            <div class="meter">
-              <div class="meterhead">
-                <span>Deep Work Ratio</span>
-                <span class="mono" id="deepMono">0%</span>
-              </div>
-              <div class="bar">
-                <div class="fill" id="deepFill"></div>
-              </div>
-              <div class="meterhint" id="deepHint">—</div>
-            </div>
-
-            <div class="meter">
-              <div class="meterhead">
-                <span>Burnout Risk</span>
-                <span class="mono" id="riskMono">0%</span>
-              </div>
-              <div class="bar">
-                <div class="fill" id="riskFill"></div>
-              </div>
-              <div class="meterhint" id="riskHint">—</div>
-            </div>
+        <div class="field">
+          <div class="row">
+            <label for="social">Solo ↔ Social</label>
+            <span class="chip" id="socialLabel">Friendly</span>
           </div>
+          <input id="social" type="range" min="0" max="100" value="65" />
+        </div>
 
-          <div class="chart">
-            <div class="charthead">
-              <div>
-                <div class="charttitle">7-day trajectory</div>
-                <div class="chartsublabel">Cognitive load over time (simulated)</div>
-              </div>
-              <div class="legend">
-                <span class="chip">Load</span>
-                <span class="chip ghost">Forecast</span>
-              </div>
-            </div>
-            <canvas id="trendChart" width="700" height="240" aria-label="Trend chart"></canvas>
+        <div class="field">
+          <div class="row">
+            <label for="spice">Soft ↔ Spicy</label>
+            <span class="chip" id="spiceLabel">Soft</span>
           </div>
+          <input id="spice" type="range" min="0" max="100" value="35" />
+        </div>
+
+        <button id="lore" class="btn wide">Generate lore</button>
+
+        <div class="loreBox" id="loreBox" aria-live="polite">
+          <div class="loreTitle" id="loreTitle">Your pet’s lore will appear here ✦</div>
+          <div class="loreBody" id="loreBody"></div>
         </div>
       </section>
 
-      <!-- INSIGHTS -->
-      <section class="card insights">
-        <div class="cardhead">
-          <h2>AI insight</h2>
-          <p>Generated from the model (no hallucinated inputs).</p>
-        </div>
-
-        <div class="insightbox" id="insightBox">
-          <div class="insighttitle" id="insightTitle">—</div>
-          <div class="insightbody" id="insightBody">Update your inputs to generate insight.</div>
-          <div class="insightmeta">
-            <span class="mono">Confidence:</span>
-            <span class="mono" id="confidenceValue">—</span>
-            <span class="sep">•</span>
-            <span class="mono" id="modelStamp">Model v1.0</span>
+      <section class="panel stage">
+        <div class="stageHeader">
+          <div>
+            <h2>Preview</h2>
+            <p class="muted">Click your pet to make it react.</p>
+          </div>
+          <div class="mini">
+            <span class="badge" id="badgeName">Unnamed</span>
+            <span class="badge" id="badgeMood">Balanced</span>
           </div>
         </div>
 
-        <div class="sim">
-          <div class="simhead">
-            <h3>Simulation mode</h3>
-            <p>Reduce meetings to see projected impact.</p>
-          </div>
+        <div class="petWrap">
+          <div id="bubble" class="bubble" hidden></div>
 
-          <div class="simrow">
-            <label class="range">
-              <span>Reduce meetings by <em id="simLabel">0%</em></span>
-              <input type="range" min="0" max="60" step="5" id="simMeetings" value="0" />
-            </label>
-
-            <div class="simstats">
-              <div class="stat">
-                <div class="k">Projected load</div>
-                <div class="v mono" id="projLoad">—</div>
-              </div>
-              <div class="stat">
-                <div class="k">Projected risk</div>
-                <div class="v mono" id="projRisk">—</div>
-              </div>
-            </div>
+          <div class="petFrame" id="petFrame" role="img" aria-label="Pet avatar preview">
+            <!-- SVG injected here -->
           </div>
+        </div>
 
-          <div class="smallnote">
-            Simulation only adjusts meeting-hours. Everything else stays constant.
-          </div>
+        <div class="hint">
+          Export me to save me! (Right-click the image or long-press on mobile to save your pet avatar.)
         </div>
       </section>
-    </section>
+    </main>
 
     <footer class="footer">
-      <div class="footnote">
-        Not medical advice. Always check your limits and seek professional support when needed.
-      </div>
-      <div class="footmeta mono">Cortex — portfolio prototype</div>
+      <span>PetLab ✦ playful avatar builder</span>
+      <span class="muted">local-only, no backend required</span>
     </footer>
-  </main>
 
-  <script src="app.js"></script>
-</body>
+    <script src="script.js"></script>
+  </body>
 </html>
