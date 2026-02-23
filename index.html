@@ -1,169 +1,33 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>PetLab — Build a Tiny Buddy</title>
-  <link href="reset.css" rel="stylesheet">
-	<link href="style.css" rel="stylesheet">
-  <!-- <script defer src="script.js"></script> -->
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cortex — Cognitive Load Intelligence</title>
+
+  <!-- Fonts -->
+  <link
+    href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@300;400&display=swap"
+    rel="stylesheet"
+  />
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- React (UMD, no build step required) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+
+  <!-- Recharts (charting library) -->
+  <script src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js"></script>
 </head>
-
 <body>
-    <div class="bg" aria-hidden="true"></div>
 
-    <header class="topbar">
-      <div class="brand">
-        <div class="mark" aria-hidden="true"></div>
-        <div>
-          <h1>PetLab</h1>
-          <p>Create a tiny buddy. Give it vibes. Export it.</p>
-        </div>
-      </div>
+  <!-- React mounts here -->
+  <div id="root"></div>
 
-      <div class="actions">
-        <button id="randomize" class="btn">Randomize</button>
-        <button id="save" class="btn">Save</button>
-        <button id="export" class="btn primary">Export PNG</button>
-      </div>
-    </header>
+  <!-- Application logic -->
+  <script src="script.js"></script>
 
-    <main class="shell">
-      <section class="panel creator">
-        <h2>Avatar Builder</h2>
-
-        <div class="field">
-          <label for="name">Pet name</label>
-          <input id="name" type="text" placeholder="e.g., Momo" maxlength="18" />
-        </div>
-
-        <div class="grid2">
-          <div class="field">
-            <label for="species">Species</label>
-            <select id="species">
-              <option value="blob" selected>Blob</option>
-              <option value="cat">Cat</option>
-              <option value="bunny">Bunny</option>
-              <option value="alien">Alien</option>
-              <option value="dog">Dog</option>
-              <option value="turtle">Turtle</option>
-              <option value="frog">Frog</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label for="accessory">Accessory</label>
-            <select id="accessory">
-              <option value="none" selected>None</option>
-              <option value="bow">Bow</option>
-              <option value="goggles">Goggles</option>
-              <option value="halo">Halo</option>
-              <option value="backpack">Backpack</option>
-              <option value="crown">Crown</option>
-              <option value="flower">Flower</option>
-              <option value="scarf">Scarf</option>
-              <option value="glasses">Round Glasses</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label for="bodyColor">Body color</label>
-            <input id="bodyColor" type="color" value="#f6a6ff" />
-          </div>
-
-          <div class="field">
-            <label for="accentColor">Accent</label>
-            <input id="accentColor" type="color" value="#7cf7ff" />
-          </div>
-
-          <div class="field">
-            <label for="eyeStyle">Eyes</label>
-            <select id="eyeStyle">
-              <option value="dot" selected>Dot</option>
-              <option value="sparkle">Sparkle</option>
-              <option value="sleepy">Sleepy</option>
-              <option value="star">Star</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label for="mouthStyle">Mouth</label>
-            <select id="mouthStyle">
-              <option value="smile" selected>Smile</option>
-              <option value="tiny">Tiny</option>
-              <option value="o">O</option>
-              <option value="smirk">Smirk</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="divider"></div>
-
-        <h2>Vibes</h2>
-
-        <div class="field">
-          <div class="row">
-            <label for="calm">Calm ↔ Chaos</label>
-            <span class="chip" id="calmLabel">Balanced</span>
-          </div>
-          <input id="calm" type="range" min="0" max="100" value="50" />
-        </div>
-
-        <div class="field">
-          <div class="row">
-            <label for="social">Solo ↔ Social</label>
-            <span class="chip" id="socialLabel">Friendly</span>
-          </div>
-          <input id="social" type="range" min="0" max="100" value="65" />
-        </div>
-
-        <div class="field">
-          <div class="row">
-            <label for="spice">Soft ↔ Spicy</label>
-            <span class="chip" id="spiceLabel">Soft</span>
-          </div>
-          <input id="spice" type="range" min="0" max="100" value="35" />
-        </div>
-
-        <button id="lore" class="btn wide">Generate lore</button>
-
-        <div class="loreBox" id="loreBox" aria-live="polite">
-          <div class="loreTitle" id="loreTitle">Your pet’s lore will appear here ✦</div>
-          <div class="loreBody" id="loreBody"></div>
-        </div>
-      </section>
-
-      <section class="panel stage">
-        <div class="stageHeader">
-          <div>
-            <h2>Preview</h2>
-            <p class="muted">Click your pet to make it react.</p>
-          </div>
-          <div class="mini">
-            <span class="badge" id="badgeName">Unnamed</span>
-            <span class="badge" id="badgeMood">Balanced</span>
-          </div>
-        </div>
-
-        <div class="petWrap">
-          <div id="bubble" class="bubble" hidden></div>
-
-          <div class="petFrame" id="petFrame" role="img" aria-label="Pet avatar preview">
-            <!-- SVG injected here -->
-          </div>
-        </div>
-
-        <div class="hint">
-          Export me to save me! (Right-click the image or long-press on mobile to save your pet avatar.)
-        </div>
-      </section>
-    </main>
-
-    <footer class="footer">
-      <span>PetLab ✦ playful avatar builder</span>
-      <span class="muted">local-only, no backend required</span>
-    </footer>
-
-    <script src="script.js"></script>
-  </body>
+</body>
 </html>

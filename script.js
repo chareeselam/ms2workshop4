@@ -1,727 +1,910 @@
-/* PetLab — live preview avatar builder (single-file app.js)
-   - Live updates (in-place SVG updates, no re-mount flicker)
-   - Randomize / Save to localStorage
-   - Lore generator (rule-based)
-   - Click pet -> react + pulse
-   - Export PNG (SVG -> canvas)
-*/
+/* ============================================================
+   CORTEX — Cognitive Load Intelligence System
+   app.js
+   ============================================================
+   All modeling logic is deterministic and fully commented.
+   No build step required — runs directly via CDN React + Recharts.
+   ============================================================ */
 
-const $ = (id) => document.getElementById(id);
+'use strict';
 
-const ui = {
-  name: $("name"),
-  species: $("species"),
-  accessory: $("accessory"),
-  bodyColor: $("bodyColor"),
-  accentColor: $("accentColor"),
-  eyeStyle: $("eyeStyle"),
-  mouthStyle: $("mouthStyle"),
-  calm: $("calm"),
-  social: $("social"),
-  spice: $("spice"),
-  calmLabel: $("calmLabel"),
-  socialLabel: $("socialLabel"),
-  spiceLabel: $("spiceLabel"),
-  lore: $("lore"),
-  loreTitle: $("loreTitle"),
-  loreBody: $("loreBody"),
-  petFrame: $("petFrame"),
-  bubble: $("bubble"),
-  badgeName: $("badgeName"),
-  badgeMood: $("badgeMood"),
-  randomize: $("randomize"),
-  save: $("save"),
-  exportBtn: $("export"),
-};
+const { useState, useMemo, useEffect, useRef } = React;
+const { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } = Recharts;
 
-const STORAGE_KEY = "petlab.avatar.v2";
-let state = loadState() || defaultState();
 
-// idle animation handle
-let raf = null;
-let rafToken = 0;
+/* ============================================================
+   MODELING ENGINE
+   All formulas are deterministic. Inputs → outputs, no randomness
+   except the fixed sleep-variation offsets in the trend generator.
+   ============================================================ */
 
-init();
-
-function init() {
-  hydrateControls(state);
-
-  // mount SVG once, then apply state
-  mountPetOnce();
-  render();
-
-  // wire controls (live on input)
-  ui.name.addEventListener("input", () => update({ name: ui.name.value }));
-  ui.species.addEventListener("change", () => update({ species: ui.species.value }));
-  ui.accessory.addEventListener("change", () => update({ accessory: ui.accessory.value }));
-  ui.bodyColor.addEventListener("input", () => update({ bodyColor: ui.bodyColor.value }));
-  ui.accentColor.addEventListener("input", () => update({ accentColor: ui.accentColor.value }));
-  ui.eyeStyle.addEventListener("change", () => update({ eyeStyle: ui.eyeStyle.value }));
-  ui.mouthStyle.addEventListener("change", () => update({ mouthStyle: ui.mouthStyle.value }));
-
-  ui.calm.addEventListener("input", () => update({ calm: +ui.calm.value }));
-  ui.social.addEventListener("input", () => update({ social: +ui.social.value }));
-  ui.spice.addEventListener("input", () => update({ spice: +ui.spice.value }));
-
-  ui.randomize.addEventListener("click", () => {
-    state = randomState();
-    hydrateControls(state);
-    render();
-    talk("New buddy dropped ✦");
-  });
-
-  ui.save.addEventListener("click", () => {
-    saveState(state);
-    talk("Saved! I will remember this form.");
-  });
-
-  ui.lore.addEventListener("click", () => {
-    const lore = generateLore(state);
-    ui.loreTitle.textContent = lore.title;
-    ui.loreBody.innerHTML = lore.html;
-    talk(lore.catchphrase);
-  });
-
-  ui.exportBtn.addEventListener("click", exportPNG);
-
-  // click pet = react
-  ui.petFrame.addEventListener("click", () => {
-    talk(pickOne(reactionsFor(state)));
-    pulsePet();
-  });
+/**
+ * computeRawLoad
+ * ──────────────
+ * Produces an unbounded cognitive load score from raw inputs.
+ *
+ * Additive stressors (increase load):
+ *   meetings       × 1.2  — meetings are cognitively costly even when passive
+ *   contextSwitches × 0.8 — each switch burns re-entry overhead
+ *   deadlineIntensity × 5 — high-intensity deadlines dominate load
+ *
+ * Subtractive factors (reduce load):
+ *   deepWorkHours  × 1.5  — focused work is restorative and high-output
+ *   sleepHours     × 1.2  — sleep is the primary cognitive recovery mechanism
+ *
+ * @param {object} inputs
+ * @returns {number} raw (unbounded) load value
+ */
+function computeRawLoad({ meetingHours, contextSwitches, deadlineIntensity, deepWorkHours, sleepHours }) {
+  return (meetingHours * 1.2)
+       + (contextSwitches * 0.8)
+       + (deadlineIntensity * 5)
+       - (deepWorkHours * 1.5)
+       - (sleepHours * 1.2);
 }
 
-/* ---------------- State ---------------- */
+// Scale bounds — empirically derived from realistic input extremes:
+//   Best case: 0h meetings, 0 switches, 1 intensity, 8h deep, 9h sleep → –24.8
+//   Worst case: 12h meetings, 20 switches, 5 intensity, 0h deep, 3h sleep → 54.0
+// Fixed scale makes scores comparable across sessions.
+const RAW_MIN = -25;
+const RAW_MAX = 75;
 
-function defaultState() {
-  return {
-    name: "",
-    species: "blob",
-    accessory: "none",
-    bodyColor: "#f6a6ff",
-    accentColor: "#7cf7ff",
-    eyeStyle: "dot",
-    mouthStyle: "smile",
-    calm: 50,
-    social: 65,
-    spice: 35,
-  };
+/**
+ * normalizeTo100
+ * ──────────────
+ * Maps a raw load value onto the 0–100 display scale.
+ *
+ * @param {number} raw
+ * @returns {number} 0–100
+ */
+function normalizeTo100(raw) {
+  return Math.max(0, Math.min(100, ((raw - RAW_MIN) / (RAW_MAX - RAW_MIN)) * 100));
 }
 
-function hydrateControls(s) {
-  ui.name.value = s.name ?? "";
-  ui.species.value = s.species ?? "blob";
-  ui.accessory.value = s.accessory ?? "none";
-  ui.bodyColor.value = s.bodyColor ?? "#f6a6ff";
-  ui.accentColor.value = s.accentColor ?? "#7cf7ff";
-  ui.eyeStyle.value = s.eyeStyle ?? "dot";
-  ui.mouthStyle.value = s.mouthStyle ?? "smile";
-  ui.calm.value = String(s.calm ?? 50);
-  ui.social.value = String(s.social ?? 65);
-  ui.spice.value = String(s.spice ?? 35);
+/**
+ * computeFragmentationIndex
+ * ─────────────────────────
+ * Measures how fractured the workday is.
+ *
+ * Base ratio: context switches per hour of deep work.
+ * Scaled by meeting density weight — more meetings compound interruption.
+ *
+ *   meeting_density_weight = 1 + (meetingHours / totalWorkHours)
+ *   fragmentation = (contextSwitches / max(deepWorkHours, 1)) × meeting_density_weight
+ *
+ * Capped at 10 for display. Values > 5 = severe fragmentation.
+ *
+ * @param {object} inputs
+ * @returns {number} 0–10
+ */
+function computeFragmentationIndex({ contextSwitches, deepWorkHours, meetingHours, totalWorkHours }) {
+  const meetingDensityWeight = 1 + (meetingHours / Math.max(totalWorkHours, 1));
+  return Math.min(10, (contextSwitches / Math.max(deepWorkHours, 1)) * meetingDensityWeight);
 }
 
-function update(patch) {
-  state = { ...state, ...patch };
-  render();
+/**
+ * computeDeepWorkRatio
+ * ────────────────────
+ * Fraction of total working hours spent in uninterrupted deep focus.
+ * Healthy threshold: ≥ 0.35 (35%).
+ *
+ * @param {object} inputs
+ * @returns {number} 0.0–1.0
+ */
+function computeDeepWorkRatio({ deepWorkHours, totalWorkHours }) {
+  return Math.min(1, deepWorkHours / Math.max(totalWorkHours, 1));
 }
 
-/* ---------------- Live preview: mount once + apply updates ---------------- */
-
-function mountPetOnce() {
-  ui.petFrame.innerHTML = basePetSVG();
-
-  ui._svg = ui.petFrame.querySelector("svg");
-  ui._root = ui._svg.querySelector("#petRoot");
-
-  // ensure we have stable refs
-  ui._body = ui._svg.querySelector("#body");
-  ui._glow = ui._svg.querySelector("#glow");
-  ui._ears = ui._svg.querySelector("#ears");
-  ui._antenna = ui._svg.querySelector("#antenna");
-  ui._eyes = ui._svg.querySelector("#eyes");
-  ui._mouth = ui._svg.querySelector("#mouth");
-  ui._accessory = ui._svg.querySelector("#accessory");
+/**
+ * computeBurnoutRisk
+ * ──────────────────
+ * Composite burnout risk score: 0–100.
+ *
+ * Three drivers:
+ *   1. Cognitive load (50%)  — high load is the primary burnout driver
+ *   2. Focus deficit  (25%)  — low deep work ratio = low recovery via flow
+ *   3. Sleep deficit  (25%)  — sleep below 9h baseline accumulates debt
+ *
+ * @param {object} { cognitiveLoad, deepWorkRatio, sleepHours }
+ * @returns {number} 0–100
+ */
+function computeBurnoutRisk({ cognitiveLoad, deepWorkRatio, sleepHours }) {
+  const sleepFactor = ((9 - sleepHours) / 9) * 25;
+  return Math.max(0, Math.min(100,
+    (cognitiveLoad * 0.5) + ((1 - deepWorkRatio) * 25) + sleepFactor
+  ));
 }
 
-function render() {
-  // labels
-  ui.calmLabel.textContent = labelCalm(state.calm);
-  ui.socialLabel.textContent = labelSocial(state.social);
-  ui.spiceLabel.textContent = labelSpice(state.spice);
+/**
+ * generateTrend
+ * ─────────────
+ * Produces a 7-day burnout + cognitive load simulation.
+ *
+ * Sun (index 6) = today (live inputs). Mon–Sat = simulated history.
+ * Day-of-week multipliers model the typical weekly stress curve:
+ *   Mon = gradual start, Thu/Fri = peak load, weekend = partial recovery.
+ *
+ * Sleep offsets are fixed (not random) so the chart is deterministic
+ * and stable across re-renders.
+ *
+ * meetingReductionPct allows Simulation Mode to project a reduced-meeting week.
+ *
+ * @param {object} inputs  — live user inputs
+ * @param {number} meetingReductionPct  — 0–80
+ * @returns {Array} 7 data points: { day, burnout, cogLoad }
+ */
+function generateTrend(inputs, meetingReductionPct = 0) {
+  const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-  // badges
-  ui.badgeMood.textContent = moodTag(state);
-  ui.badgeName.textContent = (state.name || "Unnamed").trim() || "Unnamed";
+  // Day-of-week stress multipliers
+  const multipliers   = [0.65, 0.75, 0.88, 0.95, 1.0, 0.70, 0.60];
 
-  // shape
-  const d = petShapePath(state.species);
-  ui._body.setAttribute("d", d);
-  ui._glow.setAttribute("d", d);
+  // Fixed sleep micro-variation per day (deterministic, not Math.random)
+  const sleepOffsets  = [0.02, -0.03, 0.01, -0.02, 0.03, 0.05, 0.0];
 
-  // colors
-  ui._body.setAttribute("fill", state.bodyColor);
+  const adjMeetings = inputs.meetingHours * (1 - meetingReductionPct / 100);
 
-  // ears + antenna
-  ui._ears.innerHTML = petEars(state.species, state.accentColor);
-  ui._antenna.innerHTML = state.species === "alien" ? alienAntenna(state.accentColor) : "";
-
-  // face
-  ui._eyes.innerHTML = eyeGroup(state.eyeStyle);
-  ui._mouth.innerHTML = mouthGroup(state.mouthStyle);
-
-  // accessory
-  ui._accessory.innerHTML = accessoryGroup(state.accessory, state.accentColor);
-
-  // restart idle animation so it matches new vibe
-  attachIdleAnimation();
-}
-
-/* ---------------- Labels ---------------- */
-
-function labelCalm(v) {
-  if (v < 25) return "Chaos gremlin";
-  if (v < 45) return "Wiggly";
-  if (v < 65) return "Balanced";
-  if (v < 85) return "Calm";
-  return "Zen";
-}
-function labelSocial(v) {
-  if (v < 25) return "Solo";
-  if (v < 45) return "Shy";
-  if (v < 65) return "Friendly";
-  if (v < 85) return "Extro";
-  return "Party mode";
-}
-function labelSpice(v) {
-  if (v < 25) return "Extra soft";
-  if (v < 45) return "Soft";
-  if (v < 65) return "Spunky";
-  if (v < 85) return "Spicy";
-  return "Unhinged";
-}
-
-function moodTag(s) {
-  return `${labelCalm(s.calm)} • ${labelSocial(s.social)} • ${labelSpice(s.spice)}`;
-}
-
-/* ---------------- SVG skeleton ---------------- */
-
-function basePetSVG() {
-  return `
-  <svg viewBox="0 0 500 500" width="100%" height="100%" role="img" aria-label="Pet avatar">
-    <defs>
-      <filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%">
-        <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="rgba(0,0,0,0.55)"/>
-      </filter>
-
-      <radialGradient id="bodyGlow" cx="35%" cy="25%" r="65%">
-        <stop offset="0%" stop-color="rgba(255,255,255,0.22)" />
-        <stop offset="60%" stop-color="rgba(255,255,255,0.04)" />
-        <stop offset="100%" stop-color="rgba(255,255,255,0.00)" />
-      </radialGradient>
-
-      <!-- aura blur -->
-      <filter id="auraBlur" x="-40%" y="-40%" width="180%" height="180%">
-        <feGaussianBlur stdDeviation="14" />
-      </filter>
-    </defs>
-
-    <g id="petRoot" filter="url(#softShadow)">
-
-      <!-- vibe aura behind everything -->
-      <g id="vibeAura" opacity="0.0">
-        <circle cx="250" cy="275" r="170" fill="rgba(255,255,255,0.16)" filter="url(#auraBlur)"></circle>
-        <circle cx="250" cy="275" r="120" fill="rgba(255,255,255,0.10)" filter="url(#auraBlur)"></circle>
-      </g>
-
-      <g id="antenna"></g>
-      <g id="ears"></g>
-
-      <path id="body"
-        d="${petShapePath("blob")}"
-        fill="#f6a6ff"
-        stroke="rgba(255,255,255,0.22)"
-        stroke-width="6"
-      />
-      <path id="glow"
-        d="${petShapePath("blob")}"
-        fill="url(#bodyGlow)"
-        opacity="0.9"
-      />
-
-      <!-- cheeks group so we can control intensity -->
-      <g id="cheeks">
-        <circle id="cheekL" cx="185" cy="285" r="16" fill="rgba(255,255,255,0.16)"/>
-        <circle id="cheekR" cx="315" cy="285" r="16" fill="rgba(255,255,255,0.16)"/>
-      </g>
-
-      <g id="eyes"></g>
-
-      <!-- brows sit above eyes -->
-      <g id="brows"></g>
-
-      <g id="mouth"></g>
-
-      <!-- vibe marks on top of face -->
-      <g id="vibeMarks"></g>
-
-      <!-- floating decor around pet -->
-      <g id="vibeDecor"></g>
-
-      <g id="accessory"></g>
-    </g>
-  </svg>
-  `;
-}
-
-/* ---------------- Shape library ---------------- */
-
-function petShapePath(species) {
-  switch (species) {
-
-    case "cat":
-      return "M145,250 C140,165 185,125 250,130 C315,125 360,165 355,250 C350,345 300,390 250,390 C200,390 150,345 145,250 Z";
-
-    case "bunny":
-      return "M160,190 C145,120 175,80 205,105 C220,118 220,160 214,198 C225,160 245,118 265,105 C295,80 325,120 310,190 C340,210 360,245 350,290 C330,380 285,405 250,405 C215,405 170,380 150,290 C140,245 160,210 160,190 Z";
-
-    case "alien":
-      return "M150,255 C145,170 200,120 250,120 C300,120 355,170 350,255 C344,360 292,400 250,400 C208,400 156,360 150,255 Z";
-
-    case "dog":
-      return "M140,270 C120,190 180,130 250,135 C320,130 380,190 360,270 C380,330 340,400 250,400 C160,400 120,330 140,270 Z";
-
-    case "frog":
-      return "M150,280 C140,210 190,160 250,165 C310,160 360,210 350,280 C360,340 315,395 250,395 C185,395 140,340 150,280 Z";
-
-    case "turtle":
-      return "M130,280 C130,210 180,160 250,155 C320,160 370,210 370,280 C370,350 310,400 250,400 C190,400 130,350 130,280 Z";
-
-    case "blob":
-    default:
-      return "M140,265 C120,180 165,125 250,135 C335,125 380,185 360,265 C390,325 345,395 250,395 C155,395 110,325 140,265 Z";
-  }
-}
-
-function petEars(species, accent) {
-  if (species === "cat") {
-    return `
-      <path d="M175,165 C160,120 190,95 215,130 C205,145 190,155 175,165 Z" fill="${accent}" opacity="0.85"/>
-      <path d="M325,165 C340,120 310,95 285,130 C295,145 310,155 325,165 Z" fill="${accent}" opacity="0.85"/>
-    `;
-  }
-  if (species === "bunny") {
-    return `
-      <path d="M200,195 C165,130 185,70 215,95 C235,112 228,158 215,205 Z" fill="${accent}" opacity="0.85"/>
-      <path d="M300,195 C335,130 315,70 285,95 C265,112 272,158 285,205 Z" fill="${accent}" opacity="0.85"/>
-    `;
-  }
-  if (species === "dog") {
-    return `
-      <path d="M170,180 C130,160 130,220 170,230" fill="${accent}" opacity="0.8"/>
-      <path d="M330,180 C370,160 370,220 330,230" fill="${accent}" opacity="0.8"/>
-    `;
-  }
-
-  if (species === "frog") {
-    return `
-      <circle cx="200" cy="190" r="28" fill="${accent}" opacity="0.9"/>
-      <circle cx="300" cy="190" r="28" fill="${accent}" opacity="0.9"/>
-    `;
-  }
-
-  if (species === "turtle") {
-    return `
-      <ellipse cx="130" cy="280" rx="28" ry="20" fill="${accent}" opacity="0.85"/>
-      <ellipse cx="370" cy="280" rx="28" ry="20" fill="${accent}" opacity="0.85"/>
-    `;
-  }
-  return "";
-}
-
-function alienAntenna(accent) {
-  return `
-    <g opacity="0.9">
-      <path d="M230,120 C220,70 240,55 250,90 C260,55 280,70 270,120" fill="none" stroke="${accent}" stroke-width="8" stroke-linecap="round"/>
-      <circle cx="230" cy="120" r="10" fill="${accent}"/>
-      <circle cx="270" cy="120" r="10" fill="${accent}"/>
-    </g>
-  `;
-}
-
-/* ---------------- Face library ---------------- */
-
-function eyeGroup(style) {
-  const base = `fill="rgba(0,0,0,0.78)"`;
-  if (style === "dot") {
-    return `
-      <circle cx="205" cy="255" r="10" ${base}/>
-      <circle cx="295" cy="255" r="10" ${base}/>
-    `;
-  }
-  if (style === "sparkle") {
-    return `
-      <g>
-        <circle cx="205" cy="255" r="14" ${base}/>
-        <circle cx="295" cy="255" r="14" ${base}/>
-        <circle cx="200" cy="248" r="4" fill="rgba(255,255,255,0.9)"/>
-        <circle cx="290" cy="248" r="4" fill="rgba(255,255,255,0.9)"/>
-      </g>
-    `;
-  }
-  if (style === "sleepy") {
-    return `
-      <path d="M190,255 C200,245 210,245 220,255" stroke="rgba(0,0,0,0.78)" stroke-width="8" stroke-linecap="round" fill="none"/>
-      <path d="M280,255 C290,245 300,245 310,255" stroke="rgba(0,0,0,0.78)" stroke-width="8" stroke-linecap="round" fill="none"/>
-    `;
-  }
-  // star
-  return `
-    <g fill="rgba(0,0,0,0.78)">
-      <path d="M205 242 l5 10 11 1 -8 7 2 11 -10 -6 -10 6 2 -11 -8 -7 11 -1 z"/>
-      <path d="M295 242 l5 10 11 1 -8 7 2 11 -10 -6 -10 6 2 -11 -8 -7 11 -1 z"/>
-    </g>
-  `;
-}
-
-function mouthGroup(style) {
-  if (style === "tiny") {
-    return `<circle cx="250" cy="290" r="6" fill="rgba(0,0,0,0.68)"/>`;
-  }
-  if (style === "o") {
-    return `<circle cx="250" cy="292" r="10" fill="none" stroke="rgba(0,0,0,0.68)" stroke-width="7"/>`;
-  }
-  if (style === "smirk") {
-    return `<path d="M238,292 C250,302 270,300 280,290" stroke="rgba(0,0,0,0.68)" stroke-width="8" stroke-linecap="round" fill="none"/>`;
-  }
-  // smile
-  return `<path d="M225,288 C240,310 260,310 275,288" stroke="rgba(0,0,0,0.68)" stroke-width="8" stroke-linecap="round" fill="none"/>`;
-}
-
-/* ---------------- Accessories ---------------- */
-
-function accessoryGroup(acc, accent) {
-  switch (acc) {
-    case "bow":
-      return `
-        <g transform="translate(0,-10)" opacity="0.95">
-          <path d="M200,175 C175,160 175,190 200,182 C190,175 190,170 200,175 Z" fill="${accent}"/>
-          <path d="M300,175 C325,160 325,190 300,182 C310,175 310,170 300,175 Z" fill="${accent}"/>
-          <circle cx="250" cy="178" r="10" fill="${accent}"/>
-        </g>
-      `;
-    case "goggles":
-      return `
-        <g opacity="0.9">
-          <rect x="160" y="232" width="80" height="56" rx="20" fill="rgba(0,0,0,0.18)" stroke="${accent}" stroke-width="6"/>
-          <rect x="260" y="232" width="80" height="56" rx="20" fill="rgba(0,0,0,0.18)" stroke="${accent}" stroke-width="6"/>
-          <path d="M240,260 L260,260" stroke="${accent}" stroke-width="8" stroke-linecap="round"/>
-          <path d="M150,260 L160,260 M340,260 L350,260" stroke="${accent}" stroke-width="8" stroke-linecap="round"/>
-        </g>
-      `;
-    case "halo":
-      return `
-        <g opacity="0.85">
-          <ellipse cx="250" cy="140" rx="90" ry="28" fill="none" stroke="${accent}" stroke-width="10"/>
-          <ellipse cx="250" cy="140" rx="70" ry="18" fill="none" stroke="rgba(255,255,255,0.18)" stroke-width="6"/>
-        </g>
-      `;
-    case "backpack":
-      return `
-        <g opacity="0.9">
-          <path d="M140,290 C110,290 110,355 140,355 C152,355 160,345 160,335 L160,310 C160,300 152,290 140,290 Z"
-            fill="rgba(0,0,0,0.18)" stroke="${accent}" stroke-width="6"/>
-          <path d="M360,290 C390,290 390,355 360,355 C348,355 340,345 340,335 L340,310 C340,300 348,290 360,290 Z"
-            fill="rgba(0,0,0,0.18)" stroke="${accent}" stroke-width="6"/>
-        </g>
-      `;
-    case "crown":
-      return `
-        <g opacity="0.95">
-          <path d="M200,170 L220,150 L250,175 L280,150 L300,170 Z"
-            fill="${accent}"/>
-          <circle cx="220" cy="150" r="6" fill="#fff"/>
-          <circle cx="250" cy="145" r="6" fill="#fff"/>
-          <circle cx="280" cy="150" r="6" fill="#fff"/>
-        </g>
-      `;
-
-    case "flower":
-      return `
-        <g opacity="0.9">
-          <circle cx="320" cy="210" r="16" fill="${accent}"/>
-          <circle cx="310" cy="195" r="10" fill="#fff"/>
-          <circle cx="330" cy="195" r="10" fill="#fff"/>
-          <circle cx="305" cy="215" r="10" fill="#fff"/>
-          <circle cx="335" cy="215" r="10" fill="#fff"/>
-        </g>
-      `;
-
-    case "scarf":
-      return `
-        <path d="M180,310 C220,330 280,330 320,310"
-          stroke="${accent}"
-          stroke-width="14"
-          stroke-linecap="round"
-          fill="none"/>
-      `;
-
-    case "glasses":
-      return `
-        <g opacity="0.9">
-          <circle cx="200" cy="255" r="22"
-            fill="none"
-            stroke="${accent}"
-            stroke-width="6"/>
-          <circle cx="300" cy="255" r="22"
-            fill="none"
-            stroke="${accent}"
-            stroke-width="6"/>
-          <line x1="222" y1="255" x2="278" y2="255"
-            stroke="${accent}"
-            stroke-width="6"/>
-        </g>
-      `;
-    default:
-      return "";
-  }
-}
-
-/* ---------------- Playful behaviors ---------------- */
-
-function attachIdleAnimation() {
-  if (!ui._root) return;
-
-  // cancel previous animation loop
-  rafToken++;
-  const token = rafToken;
-  if (raf) cancelAnimationFrame(raf);
-
-  const speed = 0.65 + (state.calm / 100) * 0.55;        // calmer = slower
-  const wiggle = 2 + (1 - state.calm / 100) * 6;         // chaos = more tilt
-  const bounce = 4 + (state.social / 100) * 4;           // social = bouncier
-  const wobble = (state.spice / 100) * 2.4;              // spice = extra wobble
-
-  let t = Math.random() * 1000;
-
-  const tick = () => {
-    if (token !== rafToken) return; // stop if restarted
-
-    t += 0.016 * speed;
-    const y = Math.sin(t) * bounce;
-    const r = Math.sin(t * 0.9) * (wiggle + wobble);
-    const x = Math.cos(t * 0.7) * (1.5 + wobble);
-
-    ui._root.setAttribute("transform", `translate(${x.toFixed(2)} ${y.toFixed(2)}) rotate(${r.toFixed(2)} 250 290)`);
-    raf = requestAnimationFrame(tick);
-  };
-
-  raf = requestAnimationFrame(tick);
-}
-
-function pulsePet() {
-  const root = ui._root;
-  if (!root) return;
-
-  const start = root.getAttribute("transform") || "";
-  root.animate(
-    [
-      { transform: start },
-      { transform: `${start} scale(1.03)` },
-      { transform: start },
-    ],
-    { duration: 260, easing: "ease-out" }
-  );
-}
-
-function talk(msg) {
-  ui.bubble.textContent = msg;
-  ui.bubble.hidden = false;
-
-  ui.bubble.animate(
-    [{ opacity: 0, transform: "translateY(-6px)" }, { opacity: 1, transform: "translateY(0)" }],
-    { duration: 160, easing: "ease-out" }
-  );
-
-  clearTimeout(talk._t);
-  talk._t = setTimeout(() => {
-    ui.bubble.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, easing: "ease-in" }).onfinish = () => {
-      ui.bubble.hidden = true;
+  return days.map((day, i) => {
+    const m = multipliers[i];
+    const dayInputs = {
+      meetingHours:      adjMeetings * m,
+      contextSwitches:   inputs.contextSwitches * m,
+      // Deadline intensity stays closer to stated value; lighten slightly on easy days
+      deadlineIntensity: Math.max(1, inputs.deadlineIntensity * m),
+      // Lighter meeting days allow more deep work
+      deepWorkHours:     inputs.deepWorkHours * (1 + (1 - m) * 0.35),
+      // Sleep varies ±5% around stated value
+      sleepHours:        Math.max(4, Math.min(10, inputs.sleepHours * (1 + sleepOffsets[i]))),
+      totalWorkHours:    inputs.totalWorkHours,
     };
-  }, 1700);
+
+    const raw     = computeRawLoad(dayInputs);
+    const cogLoad = normalizeTo100(raw);
+    const dwRatio = computeDeepWorkRatio(dayInputs);
+    const burnout = computeBurnoutRisk({ cognitiveLoad: cogLoad, deepWorkRatio: dwRatio, sleepHours: dayInputs.sleepHours });
+
+    return { day, burnout: Math.round(burnout), cogLoad: Math.round(cogLoad) };
+  });
 }
 
-function reactionsFor(s) {
-  const name = (s.name || "bestie").trim() || "bestie";
-  const calm = s.calm, social = s.social, spice = s.spice;
+/**
+ * generateInsights
+ * ────────────────
+ * Returns data-driven insight strings based on live metric values.
+ * Every sentence is conditionally triggered and quantitatively grounded —
+ * no hardcoded placeholder text.
+ *
+ * @param {object} metrics
+ * @returns {string[]}
+ */
+function generateInsights({ cognitiveLoad, fragmentationIndex, deepWorkRatio, meetingHours, contextSwitches, totalWorkHours, burnoutRisk, sleepHours }) {
+  const insights   = [];
+  const meetingPct = Math.round((meetingHours / Math.max(totalWorkHours, 1)) * 100);
+  const dwPct      = Math.round(deepWorkRatio * 100);
 
-  const a = [];
-  if (calm < 35) a.push("I chose chaos today. Respectfully.");
-  if (calm > 75) a.push("We breathe. We blink. We proceed.");
-  if (social > 70) a.push(`Hi ${name}! Let’s go be seen.`);
-  if (social < 35) a.push("We are in our cozy era. No interruptions.");
-  if (spice > 70) a.push("Let me handle it. I have opinions.");
-  if (spice < 35) a.push("Soft landing only. No harsh vibes.");
-
-  a.push("Click again. I like attention.");
-  a.push("I am small but emotionally influential.");
-
-  return a;
-}
-
-/* ---------------- Lore generator (rule-based) ---------------- */
-
-function generateLore(s) {
-  const name = (s.name || "Unnamed").trim() || "Unnamed";
-
-  const archetype = pickOne([
-    "Pocket Oracle",
-    "Chaos Intern",
-    "Gentle Menace",
-    "Pixel Guardian",
-    "Snack Scientist",
-    "Vibe Cartographer",
-  ]);
-
-  const quirk = pickOne([
-    "collects shiny UI icons like treasure",
-    "falls asleep mid-scroll then wakes up productive",
-    "believes hydration is a personality trait",
-    "speaks only in tiny motivational haikus sometimes",
-    "gets jealous when you open other tabs",
-  ]);
-
-  const loves = pickOne([
-    "warm lighting",
-    "clean grids",
-    "glowy gradients",
-    "soft ambient music",
-    "tiny wins",
-  ]);
-
-  const weakness = pickOne([
-    "overthinking on Thursdays",
-    "doomscroll temptation",
-    "being perceived",
-    "snack-related bribery",
-    "late-night productivity spirals",
-  ]);
-
-  const care = [
-    `Mood: <strong>${moodTag(s)}</strong>`,
-    `Primary function: <strong>${archetype}</strong>`,
-    `Quirk: ${quirk}`,
-    `Favorite thing: ${loves}`,
-    `Weakness: ${weakness}`,
-  ];
-
-  const catchphrase = pickOne([
-    "Okay bestie. One tiny step. Right now.",
-    "I have a plan. It’s adorable and effective.",
-    "We do it messy. We do it anyway.",
-    "Drink water and open the file. That’s the spell.",
-  ]);
-
-  return {
-    title: `${name}’s Care Instructions`,
-    catchphrase,
-    html: `
-      <ul>
-        ${care.map((x) => `<li>${x}</li>`).join("")}
-      </ul>
-      <div style="margin-top:10px;">
-        Catchphrase: <span style="color:rgba(255,255,255,.86)">${catchphrase}</span>
-      </div>
-    `,
-  };
-}
-
-/* ---------------- Export PNG (SVG -> canvas) ---------------- */
-
-async function exportPNG() {
-  const svg = ui.petFrame.querySelector("svg");
-  if (!svg) return;
-
-  const filename = ((state.name || "petlab").trim() || "petlab")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-
-  const serialized = new XMLSerializer().serializeToString(svg);
-  const svgBlob = new Blob([serialized], { type: "image/svg+xml;charset=utf-8" });
-  const url = URL.createObjectURL(svgBlob);
-
-  const img = new Image();
-  img.crossOrigin = "anonymous";
-
-  img.onload = () => {
-    const canvas = document.createElement("canvas");
-    const size = 1024;
-    canvas.width = size;
-    canvas.height = size;
-
-    const ctx = canvas.getContext("2d");
-    ctx.clearRect(0, 0, size, size); // transparent bg
-    ctx.drawImage(img, 0, 0, size, size);
-
-    URL.revokeObjectURL(url);
-
-    const a = document.createElement("a");
-    a.download = `${filename}-avatar.png`;
-    a.href = canvas.toDataURL("image/png");
-    a.click();
-
-    talk("Exported! I am now portable.");
-  };
-
-  img.onerror = () => {
-    URL.revokeObjectURL(url);
-    talk("Export failed. Try running via Live Server / a local server.");
-  };
-
-  img.src = url;
-}
-
-/* ---------------- Storage + random ---------------- */
-
-function saveState(s) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
-}
-
-function loadState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
+  // Meeting density threshold: > 40% of work time in meetings
+  if (meetingPct > 40) {
+    const efficiencyDrop = Math.round((1 - deepWorkRatio) * 100);
+    insights.push(
+      `Meetings consume ${meetingPct}% of your working hours. At this density, deep work efficiency ` +
+      `is reduced by approximately ${efficiencyDrop}%. Each meeting-to-focus transition introduces ` +
+      `15–20 minutes of cognitive re-entry overhead.`
+    );
   }
+
+  // Fragmentation threshold: index > 3.5
+  if (fragmentationIndex > 3.5) {
+    const fragDesc       = fragmentationIndex > 6 ? 'critically fragmented' : 'highly fragmented';
+    const recoveryMins   = Math.round(contextSwitches * 17); // ~17 min avg re-entry per switch
+    const recoveryHours  = Math.round(recoveryMins / 60);
+    insights.push(
+      `Your workflow is ${fragDesc} (index: ${fragmentationIndex.toFixed(1)}×). ${contextSwitches} daily ` +
+      `context switches generate approximately ${recoveryMins} minutes of cognitive recovery overhead — ` +
+      `${recoveryHours}h of lost productive capacity.`
+    );
+  }
+
+  // Deep work threshold: ratio < 30%
+  if (deepWorkRatio < 0.30) {
+    const needed  = Math.round(totalWorkHours * 0.35);
+    const current = Math.round(totalWorkHours * deepWorkRatio);
+    const deficit = Math.max(0, needed - current);
+    insights.push(
+      `Deep work ratio of ${dwPct}% falls below the sustainable threshold of 35%. ` +
+      `To reach baseline capacity, you need ${deficit} additional hours of uninterrupted focus ` +
+      `within your current ${totalWorkHours}h schedule.`
+    );
+  }
+
+  // High load threshold: > 68/100
+  if (cognitiveLoad > 68) {
+    insights.push(
+      `Cognitive load of ${Math.round(cognitiveLoad)}/100 is in the high-stress zone. At this level, ` +
+      `working memory capacity is impaired — complex reasoning, long-term planning, and creative ` +
+      `output are all significantly degraded.`
+    );
+  }
+
+  // Sleep threshold: < 6.5h
+  if (sleepHours < 6.5) {
+    const debt = (7.5 - sleepHours).toFixed(1);
+    insights.push(
+      `Sleep at ${sleepHours}h is ${debt}h below the cognitive performance threshold. Sleep debt ` +
+      `compounds across days, amplifying the effect of every other stressor in this model.`
+    );
+  }
+
+  // Burnout trajectory threshold: > 65
+  if (burnoutRisk > 65) {
+    insights.push(
+      `7-day burnout trajectory is in the elevated zone (${Math.round(burnoutRisk)}/100). The combination ` +
+      `of high load, low recovery, and fragmented attention creates non-linear compounding — each ` +
+      `additional stressor has outsized impact at this baseline.`
+    );
+  }
+
+  // Fallback: healthy state
+  if (insights.length === 0) {
+    insights.push(
+      `Your cognitive profile is within sustainable operating range. Deep work ratio of ${dwPct}% ` +
+      `supports effective knowledge output, and cognitive load of ${Math.round(cognitiveLoad)}/100 ` +
+      `leaves adequate capacity for complex tasks. Protect your current sleep and focus patterns.`
+    );
+  }
+
+  return insights;
 }
 
-function randomState() {
-  const colors = ["#f6a6ff", "#7cf7ff", "#ffd37a", "#a3ffb2", "#ff7aa2", "#c4a7ff", "#9df0ff"];
-  const accents = ["#7cf7ff", "#ffd37a", "#c4a7ff", "#a3ffb2", "#ff7aa2", "#ffffff"];
 
-  return {
-    ...defaultState(),
-    species: pickOne(["blob", "cat", "bunny", "alien", "dog", "frog", "turtle"]),
-    accessory: pickOne(["none", "bow", "goggles", "halo", "backpack", "crown", "flower", "scarf", "glasses"]),
-    bodyColor: pickOne(colors),
-    accentColor: pickOne(accents),
-    eyeStyle: pickOne(["dot", "sparkle", "sleepy", "star"]),
-    mouthStyle: pickOne(["smile", "tiny", "o", "smirk"]),
-    calm: randInt(10, 90),
-    social: randInt(10, 90),
-    spice: randInt(10, 90),
-  };
+/* ============================================================
+   HOOKS
+   ============================================================ */
+
+/**
+ * useAnimatedValue
+ * ────────────────
+ * Smoothly interpolates a numeric display value toward a target
+ * using cubic ease-out. Prevents jarring metric jumps on input change.
+ *
+ * @param {number} target
+ * @param {number} duration  — ms
+ * @returns {number} current animated display value
+ */
+function useAnimatedValue(target, duration) {
+  duration = duration || 550;
+  const [display, setDisplay] = useState(target);
+  const state = useRef({ prev: target, raf: null });
+
+  useEffect(function () {
+    var start     = state.current.prev;
+    var diff      = target - start;
+    var startTime = performance.now();
+
+    function tick(now) {
+      var t    = Math.min(1, (now - startTime) / duration);
+      var ease = 1 - Math.pow(1 - t, 3); // cubic ease-out
+      setDisplay(start + diff * ease);
+      if (t < 1) {
+        state.current.raf = requestAnimationFrame(tick);
+      } else {
+        state.current.prev = target;
+      }
+    }
+
+    if (state.current.raf) cancelAnimationFrame(state.current.raf);
+    state.current.raf = requestAnimationFrame(tick);
+
+    return function () {
+      if (state.current.raf) cancelAnimationFrame(state.current.raf);
+    };
+  }, [target, duration]);
+
+  return display;
 }
 
-/* ---------------- Utils ---------------- */
 
-function pickOne(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
+/* ============================================================
+   COMPONENTS
+   ============================================================ */
+
+/**
+ * CognitiveDial
+ * ─────────────
+ * Large circular SVG arc dial showing cognitive load 0–100.
+ * Color shifts: green (< 40) → amber (< 65) → red (≥ 65).
+ * Arc and color animate smoothly via useAnimatedValue.
+ */
+function CognitiveDial(props) {
+  var value    = props.value;
+  var animated = useAnimatedValue(value);
+
+  var SIZE   = 204;
+  var SW     = 10;                        // stroke width
+  var R      = (SIZE - SW) / 2;          // radius
+  var CIRC   = 2 * Math.PI * R;          // full circumference
+  var progress = (animated / 100) * CIRC;
+
+  function getColor(v) {
+    if (v < 40) return '#34d399'; // green
+    if (v < 65) return '#fbbf24'; // amber
+    return '#f87171';             // red
+  }
+  var color = getColor(animated);
+  var label = animated < 40 ? 'Sustainable' : animated < 65 ? 'Elevated' : 'Critical';
+
+  return React.createElement('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 } },
+    // SVG dial
+    React.createElement('div', { style: { position: 'relative', width: SIZE, height: SIZE } },
+      // Radial glow behind the arc
+      React.createElement('div', {
+        style: {
+          position: 'absolute', inset: SW, borderRadius: '50%',
+          background: 'radial-gradient(circle, ' + color + '08 0%, transparent 70%)',
+          transition: 'background 0.5s ease',
+        }
+      }),
+      React.createElement('svg', { width: SIZE, height: SIZE, style: { transform: 'rotate(-90deg)' } },
+        // Track (background ring)
+        React.createElement('circle', {
+          cx: SIZE / 2, cy: SIZE / 2, r: R,
+          fill: 'none',
+          stroke: 'rgba(255,255,255,0.06)',
+          strokeWidth: SW,
+        }),
+        // Progress arc
+        React.createElement('circle', {
+          cx: SIZE / 2, cy: SIZE / 2, r: R,
+          fill: 'none',
+          stroke: color,
+          strokeWidth: SW,
+          strokeDasharray: CIRC,
+          strokeDashoffset: CIRC - progress,
+          strokeLinecap: 'round',
+          style: {
+            transition: 'stroke 0.5s ease, stroke-dashoffset 0.6s cubic-bezier(0.34,1.56,0.64,1)',
+            filter: 'drop-shadow(0 0 10px ' + color + ')',
+          },
+        })
+      ),
+      // Center text
+      React.createElement('div', {
+        style: {
+          position: 'absolute', inset: 0,
+          display: 'flex', flexDirection: 'column',
+          alignItems: 'center', justifyContent: 'center',
+        }
+      },
+        React.createElement('span', {
+          style: {
+            fontSize: '2.8rem', fontFamily: "'DM Mono', monospace",
+            color: color, letterSpacing: '-3px', lineHeight: 1,
+            transition: 'color 0.5s ease',
+          }
+        }, Math.round(animated)),
+        React.createElement('span', {
+          style: { fontSize: '0.62rem', color: 'rgba(255,255,255,0.3)', letterSpacing: '0.14em', marginTop: 4, textTransform: 'uppercase' }
+        }, '/ 100')
+      )
+    ),
+    // Label below dial
+    React.createElement('div', { style: { textAlign: 'center' } },
+      React.createElement('div', { className: 'section-eyebrow', style: { marginBottom: 2 } }, 'Cognitive Load'),
+      React.createElement('div', { style: { fontSize: '0.8rem', color: color, transition: 'color 0.5s ease' } }, label)
+    )
+  );
 }
 
-function randInt(a, b) {
-  return Math.floor(a + Math.random() * (b - a + 1));
+/**
+ * MeterBar
+ * ────────
+ * Animated horizontal progress bar for index/ratio metrics.
+ * Width animates via useAnimatedValue with cubic ease-out.
+ */
+function MeterBar(props) {
+  var label    = props.label;
+  var value    = props.value;
+  var max      = props.max != null ? props.max : 10;
+  var unit     = props.unit != null ? props.unit : '';
+  var color    = props.color || '#818cf8';
+  var sublabel = props.sublabel;
+
+  var pct      = Math.min(100, (value / max) * 100);
+  var animated = useAnimatedValue(pct);
+  var displayVal = typeof value === 'number'
+    ? (Number.isInteger(value) ? value : value.toFixed(2))
+    : value;
+
+  return React.createElement('div', { style: { marginBottom: '1.3rem' } },
+    // Label row
+    React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: 6 } },
+      React.createElement('span', { style: { fontSize: '0.68rem', color: 'rgba(255,255,255,0.35)', letterSpacing: '0.1em', textTransform: 'uppercase' } }, label),
+      React.createElement('span', { className: 'mono', style: { fontSize: '0.72rem', color: color } }, displayVal + unit)
+    ),
+    // Track + fill
+    React.createElement('div', { style: { height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 99, overflow: 'hidden' } },
+      React.createElement('div', {
+        style: {
+          height: '100%',
+          width: animated + '%',
+          background: color,
+          borderRadius: 99,
+          boxShadow: '0 0 8px ' + color + '80',
+          transition: 'width 0.6s cubic-bezier(0.34,1.56,0.64,1)',
+        }
+      })
+    ),
+    // Optional sublabel
+    sublabel && React.createElement('div', { style: { fontSize: '0.62rem', color: 'rgba(255,255,255,0.2)', marginTop: 5 } }, sublabel)
+  );
 }
+
+/**
+ * NumberInput
+ * ───────────
+ * Step-button numeric input (−/+ buttons around a display cell).
+ * Used for hours and count inputs.
+ */
+function NumberInput(props) {
+  var label    = props.label;
+  var value    = props.value;
+  var min      = props.min != null ? props.min : 0;
+  var max      = props.max != null ? props.max : 24;
+  var step     = props.step != null ? props.step : 0.5;
+  var onChange = props.onChange;
+  var unit     = props.unit != null ? props.unit : 'h';
+
+  function decrement() { onChange(Math.max(min, Math.round((value - step) * 10) / 10)); }
+  function increment() { onChange(Math.min(max, Math.round((value + step) * 10) / 10)); }
+
+  return React.createElement('div', { style: { marginBottom: '1.1rem' } },
+    React.createElement('label', {
+      style: { display: 'block', fontSize: '0.68rem', color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 6 }
+    }, label),
+    React.createElement('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+      React.createElement('button', { className: 'btn-step', onClick: decrement }, '−'),
+      React.createElement('div', {
+        style: {
+          flex: 1, textAlign: 'center', fontFamily: "'DM Mono', monospace",
+          fontSize: '0.95rem', color: 'rgba(255,255,255,0.8)',
+          background: 'rgba(255,255,255,0.04)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: 7, padding: '7px 0',
+        }
+      }, value + unit),
+      React.createElement('button', { className: 'btn-step', onClick: increment }, '+')
+    )
+  );
+}
+
+/**
+ * SliderInput
+ * ───────────
+ * Labelled range slider. Background gradient tracks the value position
+ * so the filled track is visually distinct from the empty portion.
+ */
+function SliderInput(props) {
+  var label    = props.label;
+  var value    = props.value;
+  var min      = props.min != null ? props.min : 1;
+  var max      = props.max != null ? props.max : 5;
+  var step     = props.step != null ? props.step : 1;
+  var onChange = props.onChange;
+  var unit     = props.unit != null ? props.unit : '';
+
+  var pct      = ((value - min) / (max - min)) * 100;
+  var gradient = 'linear-gradient(to right, #6366f1 ' + pct + '%, rgba(255,255,255,0.08) ' + pct + '%)';
+
+  return React.createElement('div', { style: { marginBottom: '1.2rem' } },
+    React.createElement('div', { style: { display: 'flex', justifyContent: 'space-between', marginBottom: 7 } },
+      React.createElement('label', {
+        style: { fontSize: '0.68rem', color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.1em' }
+      }, label),
+      React.createElement('span', { className: 'mono', style: { fontSize: '0.72rem', color: 'rgba(255,255,255,0.65)' } }, value + unit)
+    ),
+    React.createElement('input', {
+      type: 'range', min: min, max: max, step: step, value: value,
+      onChange: function (e) { onChange(Number(e.target.value)); },
+      style: { background: gradient },
+    })
+  );
+}
+
+/**
+ * CustomTooltip
+ * ─────────────
+ * Styled Recharts tooltip for the burnout trend chart.
+ */
+function CustomTooltip(props) {
+  var active  = props.active;
+  var payload = props.payload;
+  var label   = props.label;
+
+  if (!active || !payload || !payload.length) return null;
+
+  return React.createElement('div', {
+    style: {
+      background: 'rgba(7,7,15,0.96)',
+      border: '1px solid rgba(255,255,255,0.1)',
+      borderRadius: 8, padding: '8px 14px',
+      fontSize: '0.7rem', fontFamily: "'DM Mono', monospace",
+    }
+  },
+    React.createElement('div', { style: { color: 'rgba(255,255,255,0.35)', marginBottom: 5 } }, label),
+    payload.map(function (p) {
+      return React.createElement('div', { key: p.dataKey, style: { color: p.color, marginBottom: 2 } }, p.name + ': ' + p.value);
+    })
+  );
+}
+
+
+/* ============================================================
+   MAIN APP
+   ============================================================ */
+
+function App() {
+
+  /* ── State: user inputs ── */
+  var meetingHoursState      = useState(4);
+  var deepWorkHoursState     = useState(2);
+  var contextSwitchesState   = useState(8);
+  var sleepHoursState        = useState(7);
+  var deadlineIntensityState = useState(3);
+  var energyLevelState       = useState(3);
+  var meetingReductionState  = useState(20);
+  var showSimState           = useState(false);
+
+  var meetingHours       = meetingHoursState[0];
+  var setMeetingHours    = meetingHoursState[1];
+  var deepWorkHours      = deepWorkHoursState[0];
+  var setDeepWorkHours   = deepWorkHoursState[1];
+  var contextSwitches    = contextSwitchesState[0];
+  var setContextSwitches = contextSwitchesState[1];
+  var sleepHours         = sleepHoursState[0];
+  var setSleepHours      = sleepHoursState[1];
+  var deadlineIntensity  = deadlineIntensityState[0];
+  var setDeadlineIntensity = deadlineIntensityState[1];
+  var energyLevel        = energyLevelState[0];
+  var setEnergyLevel     = energyLevelState[1];
+  var meetingReduction   = meetingReductionState[0];
+  var setMeetingReduction = meetingReductionState[1];
+  var showSim            = showSimState[0];
+  var setShowSim         = showSimState[1];
+
+  // Total working hours: meetings + deep work + 2h overhead (admin, breaks, misc)
+  var totalWorkHours = meetingHours + deepWorkHours + 2;
+
+  /* ── Derived metrics (memoized) ── */
+  var metrics = useMemo(function () {
+    // Apply meeting reduction when simulation is active
+    var simMeetingHours = showSim
+      ? meetingHours * (1 - meetingReduction / 100)
+      : meetingHours;
+
+    var inputs = {
+      meetingHours: simMeetingHours,
+      contextSwitches: contextSwitches,
+      deadlineIntensity: deadlineIntensity,
+      deepWorkHours: deepWorkHours,
+      sleepHours: sleepHours,
+      totalWorkHours: totalWorkHours,
+    };
+
+    var raw            = computeRawLoad(inputs);
+    var cognitiveLoad  = normalizeTo100(raw);
+    var fragmentIdx    = computeFragmentationIndex(inputs);
+    var deepWorkRatio  = computeDeepWorkRatio(inputs);
+    var burnoutRisk    = computeBurnoutRisk({ cognitiveLoad: cognitiveLoad, deepWorkRatio: deepWorkRatio, sleepHours: sleepHours });
+
+    // Trend uses base inputs (not sim) so history is stable; reduction only projects forward
+    var trendData = generateTrend(
+      { meetingHours: meetingHours, contextSwitches: contextSwitches, deadlineIntensity: deadlineIntensity, deepWorkHours: deepWorkHours, sleepHours: sleepHours, totalWorkHours: totalWorkHours },
+      showSim ? meetingReduction : 0
+    );
+
+    var insights = generateInsights({
+      cognitiveLoad: cognitiveLoad,
+      fragmentationIndex: fragmentIdx,
+      deepWorkRatio: deepWorkRatio,
+      meetingHours: simMeetingHours,
+      contextSwitches: contextSwitches,
+      totalWorkHours: totalWorkHours,
+      burnoutRisk: burnoutRisk,
+      sleepHours: sleepHours,
+    });
+
+    return {
+      cognitiveLoad:      cognitiveLoad,
+      fragmentationIndex: fragmentIdx,
+      deepWorkRatio:      deepWorkRatio,
+      burnoutRisk:        burnoutRisk,
+      trendData:          trendData,
+      insights:           insights,
+    };
+  }, [meetingHours, deepWorkHours, contextSwitches, sleepHours, deadlineIntensity, energyLevel, meetingReduction, showSim, totalWorkHours]);
+
+  // Dynamic colors based on risk thresholds
+  var burnoutColor = metrics.burnoutRisk > 65 ? '#f87171' : metrics.burnoutRisk > 40 ? '#fbbf24' : '#34d399';
+  var fragColor    = metrics.fragmentationIndex > 5 ? '#f87171' : metrics.fragmentationIndex > 3 ? '#fbbf24' : '#34d399';
+
+
+  /* ── RENDER ── */
+
+  var h = React.createElement;
+
+  return h('div', { className: 'page-wrapper' },
+
+    /* ── NAV ── */
+    h('nav', { className: 'nav' },
+      h('div', { className: 'nav-logo' },
+        h('div', { className: 'nav-logo-icon' },
+          h('div', { className: 'nav-logo-dot' })
+        ),
+        h('span', { className: 'nav-wordmark' }, 'CORTEX')
+      ),
+      h('div', { className: 'nav-links' },
+        h('span', null, 'System'),
+        h('span', null, 'Model'),
+        h('span', null, 'Insights')
+      ),
+      h('div', { className: 'nav-version' }, 'v0.4 · alpha')
+    ),
+
+    h('div', { className: 'content-pad' },
+
+      /* ── HERO ── */
+      h('div', { className: 'hero' },
+        h('div', { className: 'hero-pill fade-up' },
+          h('span', { className: 'hero-pill-dot pulse' }),
+          h('span', { className: 'hero-pill-label' }, 'Cognitive Systems Modeling')
+        ),
+        h('h1', { className: 'hero-title fade-up fade-up-1' },
+          h('span', { className: 'hero-title-line1' }, 'Model your'),
+          h('span', { className: 'hero-title-line2' }, 'cognitive system.')
+        ),
+        h('p', { className: 'hero-description fade-up fade-up-2' },
+          'Cortex quantifies your mental bandwidth through structured daily inputs — calculating cognitive load, fragmentation, and burnout trajectory across a 7-day horizon.'
+        )
+      ),
+
+      /* ── MAIN GRID ── */
+      h('div', { className: 'main-grid fade-up fade-up-3' },
+
+        /* INPUT PANEL */
+        h('div', { className: 'card', style: { padding: '26px 22px' } },
+          h('div', { style: { marginBottom: 22 } },
+            h('div', { className: 'section-eyebrow', style: { marginBottom: 3 } }, 'Daily Inputs'),
+            h('div', { className: 'section-subtitle' }, 'Configure your workday profile')
+          ),
+
+          // Hours + switches (step buttons)
+          h('div', { style: { borderBottom: '1px solid rgba(255,255,255,0.055)', marginBottom: 20, paddingBottom: 20 } },
+            h(NumberInput, { label: 'Meeting hours',    value: meetingHours,    min: 0,  max: 12, step: 0.5, onChange: setMeetingHours }),
+            h(NumberInput, { label: 'Deep work hours',  value: deepWorkHours,   min: 0,  max: 12, step: 0.5, onChange: setDeepWorkHours }),
+            h(NumberInput, { label: 'Context switches', value: contextSwitches, min: 0,  max: 30, step: 1,   onChange: setContextSwitches, unit: '×' }),
+            h(NumberInput, { label: 'Sleep hours',      value: sleepHours,      min: 3,  max: 12, step: 0.5, onChange: setSleepHours })
+          ),
+
+          // Sliders
+          h(SliderInput, { label: 'Deadline intensity', value: deadlineIntensity, min: 1, max: 5, onChange: setDeadlineIntensity }),
+          h(SliderInput, { label: 'Energy level',       value: energyLevel,       min: 1, max: 5, onChange: setEnergyLevel }),
+
+          // Total hours readout
+          h('div', {
+            style: {
+              marginTop: 18, padding: '12px 14px',
+              background: 'rgba(99,102,241,0.06)',
+              border: '1px solid rgba(99,102,241,0.14)',
+              borderRadius: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            }
+          },
+            h('span', { className: 'section-eyebrow', style: { color: 'rgba(165,180,252,0.5)' } }, 'Total Work Hours'),
+            h('span', { className: 'mono', style: { fontSize: '1rem', color: '#a5b4fc' } }, totalWorkHours + 'h')
+          )
+        ),
+
+        /* RIGHT COLUMN */
+        h('div', { className: 'right-col' },
+
+          // Dial + meters row
+          h('div', { className: 'metrics-row' },
+
+            // Cognitive Load Dial card
+            h('div', {
+              className: 'card',
+              style: { padding: '28px 20px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8 }
+            },
+              h(CognitiveDial, { value: metrics.cognitiveLoad })
+            ),
+
+            // System Indices card
+            h('div', {
+              className: 'card',
+              style: { padding: '26px 22px', display: 'flex', flexDirection: 'column', justifyContent: 'center' }
+            },
+              h('div', { className: 'section-eyebrow', style: { marginBottom: 22 } }, 'System Indices'),
+              h(MeterBar, {
+                label: 'Fragmentation Index',
+                value: parseFloat(metrics.fragmentationIndex.toFixed(2)),
+                max: 10,
+                color: fragColor,
+                sublabel: contextSwitches + ' switches / ' + Math.max(1, deepWorkHours) + 'h deep work',
+              }),
+              h(MeterBar, {
+                label: 'Deep Work Ratio',
+                value: parseFloat(metrics.deepWorkRatio.toFixed(2)),
+                max: 1,
+                color: '#818cf8',
+                sublabel: Math.round(metrics.deepWorkRatio * 100) + '% of working hours in deep focus',
+              }),
+              h(MeterBar, {
+                label: '7-Day Burnout Risk',
+                value: parseFloat(metrics.burnoutRisk.toFixed(1)),
+                max: 100,
+                color: burnoutColor,
+                sublabel: (metrics.burnoutRisk < 40 ? 'Low' : metrics.burnoutRisk < 65 ? 'Moderate' : 'High') + ' risk trajectory',
+              })
+            )
+          ),
+
+          // Burnout Trend Chart card
+          h('div', { className: 'card', style: { padding: '24px 20px 14px' } },
+            h('div', { style: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 } },
+              h('div', null,
+                h('div', { className: 'section-eyebrow', style: { marginBottom: 3 } }, 'Burnout Risk Forecast'),
+                h('div', { className: 'section-subtitle' }, '7-day rolling simulation')
+              ),
+              h('div', {
+                style: { display: 'flex', gap: 18, fontSize: '0.65rem', fontFamily: "'DM Mono', monospace", color: 'rgba(255,255,255,0.25)', alignItems: 'center' }
+              },
+                h('span', { style: { color: '#f87171' } }, '— burnout risk'),
+                h('span', { style: { color: '#5b5fef' } }, '— cog. load')
+              )
+            ),
+            h(ResponsiveContainer, { width: '100%', height: 150 },
+              h(LineChart, { data: metrics.trendData, margin: { top: 5, right: 10, left: -24, bottom: 0 } },
+                h(XAxis, {
+                  dataKey: 'day',
+                  tick: { fontSize: 10, fill: 'rgba(255,255,255,0.25)', fontFamily: "'DM Mono', monospace" },
+                  axisLine: false, tickLine: false,
+                }),
+                h(YAxis, {
+                  tick: { fontSize: 10, fill: 'rgba(255,255,255,0.2)', fontFamily: "'DM Mono', monospace" },
+                  axisLine: false, tickLine: false, domain: [0, 100],
+                }),
+                h(Tooltip, { content: h(CustomTooltip, null) }),
+                h(ReferenceLine, { y: 65, stroke: 'rgba(248,113,113,0.18)', strokeDasharray: '3 3' }),
+                h(Line, {
+                  type: 'monotone', dataKey: 'burnout', name: 'Burnout Risk',
+                  stroke: '#f87171', strokeWidth: 2, dot: false,
+                  style: { filter: 'drop-shadow(0 0 4px rgba(248,113,113,0.5))' },
+                }),
+                h(Line, {
+                  type: 'monotone', dataKey: 'cogLoad', name: 'Cog. Load',
+                  stroke: '#5b5fef', strokeWidth: 1.5, dot: false, strokeOpacity: 0.65,
+                })
+              )
+            )
+          )
+        ) // end right-col
+      ), // end main-grid
+
+      /* ── SIMULATION MODE ── */
+      h('div', { className: 'card fade-up fade-up-4', style: { padding: '24px', marginBottom: 14 } },
+        h('div', {
+          style: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: showSim ? 24 : 0 }
+        },
+          h('div', null,
+            h('div', { className: 'section-eyebrow', style: { marginBottom: 4 } }, 'Simulation Mode'),
+            h('div', { className: 'section-subtitle' }, 'Project the impact of reducing meeting load')
+          ),
+          h('button', {
+            className: 'sim-toggle' + (showSim ? ' active' : ''),
+            onClick: function () { setShowSim(function (v) { return !v; }); },
+          }, showSim ? 'Exit Simulation' : 'Run Simulation')
+        ),
+
+        showSim && h('div', { className: 'sim-row' },
+          // Slider + arrow readout
+          h('div', null,
+            h(SliderInput, {
+              label: 'Reduce meetings by',
+              value: meetingReduction, min: 0, max: 80, step: 5,
+              onChange: setMeetingReduction, unit: '%',
+            }),
+            h('div', {
+              className: 'mono',
+              style: { fontSize: '0.68rem', color: 'rgba(255,255,255,0.22)', marginTop: 6 }
+            }, meetingHours + 'h → ' + (meetingHours * (1 - meetingReduction / 100)).toFixed(1) + 'h meeting hours')
+          ),
+          // Projected Load tile
+          h('div', {
+            style: {
+              padding: '18px 16px', background: 'rgba(99,102,241,0.07)', borderRadius: 12,
+              border: '1px solid rgba(99,102,241,0.14)', textAlign: 'center',
+            }
+          },
+            h('div', { style: { fontSize: '0.6rem', color: 'rgba(165,180,252,0.45)', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 6 } }, 'Projected Load'),
+            h('div', { className: 'mono', style: { fontSize: '2.2rem', color: '#a5b4fc', lineHeight: 1 } }, Math.round(metrics.cognitiveLoad)),
+            h('div', { style: { fontSize: '0.62rem', color: 'rgba(255,255,255,0.2)', marginTop: 4 } }, '/ 100')
+          ),
+          // Projected Burnout tile
+          h('div', {
+            style: {
+              padding: '18px 16px', background: 'rgba(52,211,153,0.04)', borderRadius: 12,
+              border: '1px solid ' + burnoutColor + '22', textAlign: 'center',
+            }
+          },
+            h('div', { style: { fontSize: '0.6rem', color: burnoutColor + '80', textTransform: 'uppercase', letterSpacing: '0.12em', marginBottom: 6 } }, 'Burnout Risk'),
+            h('div', { className: 'mono', style: { fontSize: '2.2rem', color: burnoutColor, lineHeight: 1 } }, Math.round(metrics.burnoutRisk)),
+            h('div', { style: { fontSize: '0.62rem', color: 'rgba(255,255,255,0.2)', marginTop: 4 } }, '7-day')
+          )
+        )
+      ),
+
+      /* ── PATTERN ANALYSIS ── */
+      h('div', { className: 'card', style: { padding: '28px 26px' } },
+        h('div', { style: { marginBottom: 22 } },
+          h('div', { className: 'section-eyebrow', style: { marginBottom: 4 } }, 'Pattern Analysis'),
+          h('div', { className: 'section-subtitle' }, 'Derived from your current cognitive profile — not generic advice')
+        ),
+
+        // Insight cards
+        h('div', { style: { display: 'grid', gap: 12, marginBottom: 20 } },
+          metrics.insights.map(function (insight, i) {
+            return h('div', {
+              key: i,
+              style: {
+                display: 'flex', gap: 16, padding: '16px 18px',
+                background: 'rgba(255,255,255,0.02)', borderRadius: 10,
+                border: '1px solid rgba(255,255,255,0.055)',
+              }
+            },
+              // Index badge
+              h('div', { style: { flexShrink: 0, marginTop: 2 } },
+                h('div', {
+                  style: {
+                    width: 22, height: 22, borderRadius: 6,
+                    background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.22)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }
+                },
+                  h('span', { className: 'mono', style: { fontSize: '0.6rem', color: '#818cf8' } }, '0' + (i + 1))
+                )
+              ),
+              // Insight text
+              h('p', { style: { fontSize: '0.85rem', color: 'rgba(255,255,255,0.5)', lineHeight: 1.75, fontWeight: 300 } }, insight)
+            );
+          })
+        ),
+
+        // Metric snapshot chips
+        h('div', { style: { display: 'flex', gap: 10, flexWrap: 'wrap' } },
+          [
+            { label: 'CL Score',     value: Math.round(metrics.cognitiveLoad) + '/100' },
+            { label: 'Frag Index',   value: metrics.fragmentationIndex.toFixed(2) },
+            { label: 'DW Ratio',     value: Math.round(metrics.deepWorkRatio * 100) + '%' },
+            { label: 'Burnout Risk', value: Math.round(metrics.burnoutRisk) + '/100' },
+            { label: 'Total Hours',  value: totalWorkHours + 'h' },
+          ].map(function (m) {
+            return h('div', { key: m.label, className: 'metric-chip' },
+              h('span', { style: { fontSize: '0.6rem', color: 'rgba(255,255,255,0.22)', textTransform: 'uppercase', letterSpacing: '0.08em' } }, m.label),
+              h('span', { className: 'mono', style: { fontSize: '0.72rem', color: 'rgba(255,255,255,0.55)' } }, m.value)
+            );
+          })
+        )
+      ),
+
+      /* ── FOOTER ── */
+      h('div', { className: 'footer' },
+        'CORTEX · COGNITIVE LOAD INTELLIGENCE SYSTEM · ALL COMPUTATIONS DETERMINISTIC AND CLIENT-SIDE'
+      )
+
+    ) // end content-pad
+  ); // end page-wrapper
+}
+
+
+/* ── MOUNT ── */
+var root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(React.createElement(App, null));
