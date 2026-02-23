@@ -1,33 +1,159 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cortex — Cognitive Load Intelligence</title>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Augment Studio — Prosthetic Configurator</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
 
-  <!-- Fonts -->
-  <link
-    href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@300;400&display=swap"
-    rel="stylesheet"
-  />
+  <body>
+    <div class="bg" aria-hidden="true"></div>
 
-  <!-- Stylesheet -->
-  <link rel="stylesheet" href="style.css" />
+    <header class="topbar">
+      <div class="brand">
+        <div class="mark" aria-hidden="true"></div>
+        <div class="brandText">
+          <h1>Augment Studio</h1>
+          <p>Configure assistive tech as function + identity. Export a spec card.</p>
+        </div>
+      </div>
 
-  <!-- React (UMD, no build step required) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+      <div class="actions">
+        <button id="randomize" class="btn">Randomize</button>
+        <button id="save" class="btn">Save</button>
+        <button id="export" class="btn primary">Export PNG</button>
+      </div>
+    </header>
 
-  <!-- Recharts (charting library) -->
-  <script src="https://unpkg.com/recharts@2.8.0/umd/Recharts.js"></script>
-</head>
-<body>
+    <main class="shell">
+      <section class="panel creator">
+        <h2>Configurator</h2>
 
-  <!-- React mounts here -->
-  <div id="root"></div>
+        <div class="field">
+          <label for="name">Build name</label>
+          <input id="name" type="text" placeholder="e.g., Atlas Mk.II" maxlength="22" />
+        </div>
 
-  <!-- Application logic -->
-  <script src="script.js"></script>
+        <div class="grid2">
+          <div class="field">
+            <label for="module">Module</label>
+            <select id="module">
+              <option value="arm" selected>Arm</option>
+              <option value="hand">Hand</option>
+              <option value="leg">Leg</option>
+              <option value="eye">Ocular</option>
+              <option value="spine">Spine</option>
+            </select>
+          </div>
 
-</body>
+          <div class="field">
+            <label for="attachment">Attachment</label>
+            <select id="attachment">
+              <option value="none" selected>None</option>
+              <option value="led_ring">LED Ring</option>
+              <option value="carbon_guard">Carbon Guard</option>
+              <option value="tool_mount">Tool Mount</option>
+              <option value="armor_plate">Armor Plate</option>
+              <option value="sleeve">Soft Sleeve</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="shellColor">Shell color</label>
+            <input id="shellColor" type="color" value="#e9eef6" />
+          </div>
+
+          <div class="field">
+            <label for="accentColor">Accent</label>
+            <input id="accentColor" type="color" value="#3a7bd5" />
+          </div>
+
+          <div class="field">
+            <label for="uiStyle">Overlay style</label>
+            <select id="uiStyle">
+              <option value="reticle" selected>Reticle</option>
+              <option value="diagnostic">Diagnostic</option>
+              <option value="waveform">Waveform</option>
+              <option value="minimal">Minimal</option>
+            </select>
+          </div>
+
+          <div class="field">
+            <label for="finish">Finish</label>
+            <select id="finish">
+              <option value="ceramic" selected>Ceramic</option>
+              <option value="titanium">Titanium</option>
+              <option value="carbon">Carbon</option>
+              <option value="polymer">Polymer</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <h2>Tuning</h2>
+
+        <div class="field">
+          <div class="row">
+            <label for="stability">Stability ↔ Overclock</label>
+            <span class="chip" id="stabilityLabel">Balanced</span>
+          </div>
+          <input id="stability" type="range" min="0" max="100" value="55" />
+        </div>
+
+        <div class="field">
+          <div class="row">
+            <label for="signal">Stealth ↔ Signal</label>
+            <span class="chip" id="signalLabel">Low signal</span>
+          </div>
+          <input id="signal" type="range" min="0" max="100" value="35" />
+        </div>
+
+        <div class="field">
+          <div class="row">
+            <label for="comfort">Comfort ↔ Force</label>
+            <span class="chip" id="comfortLabel">Comfort</span>
+          </div>
+          <input id="comfort" type="range" min="0" max="100" value="45" />
+        </div>
+
+        <button id="spec" class="btn wide">Generate spec sheet</button>
+
+        <div class="specBox" id="specBox" aria-live="polite">
+          <div class="specTitle" id="specTitle">Your spec sheet will appear here ▢</div>
+          <div class="specBody" id="specBody"></div>
+        </div>
+      </section>
+
+      <section class="panel stage">
+        <div class="stageHeader">
+          <div>
+            <h2>Preview</h2>
+            <p class="muted">Live schematic + HUD. Click to pulse.</p>
+          </div>
+          <div class="mini">
+            <span class="badge" id="badgeName">Unnamed</span>
+            <span class="badge" id="badgeMode">Balanced</span>
+          </div>
+        </div>
+
+        <div class="previewWrap">
+          <div id="toast" class="toast" hidden></div>
+          <div class="frame" id="frame" role="img" aria-label="Prosthetic schematic preview"></div>
+        </div>
+
+        <div class="hint">
+          Export creates a PNG you can drop into your case study.
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <span>Augment Studio ▢ prosthetic configurator</span>
+      <span class="muted">local-only, no backend required</span>
+    </footer>
+
+    <script src="script.js"></script>
+  </body>
 </html>
