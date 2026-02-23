@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cortex — Cognitive Load Intelligence</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/recharts/2.8.0/Recharts.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background: #07070f;
+      color: #fff;
+      font-family: 'DM Sans', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+    .card {
+      background: rgba(255,255,255,0.028);
+      border: 1px solid rgba(255,255,255,0.072);
+      border-radius: 16px;
+      transition: border-color 0.2s;
+    }
+    .card:hover { border-color: rgba(255,255,255,0.11); }
+
+    input[type=range] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 4px;
+      border-radius: 99px;
+      outline: none;
+      cursor: pointer;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px; height: 14px;
+      background: #6366f1;
+      border-radius: 50%;
+      cursor: pointer;
+      box-shadow: 0 0 10px rgba(99,102,241,0.7);
+      transition: transform 0.15s;
+    }
+    input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+    input[type=range]::-moz-range-thumb {
+      width: 14px; height: 14px;
+      background: #6366f1;
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+    }
+
+    .btn-step {
+      width: 32px; height: 32px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 7px;
+      color: rgba(255,255,255,0.5);
+      cursor: pointer;
+      font-size: 1rem;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+      flex-shrink: 0;
+      user-select: none;
+    }
+    .btn-step:hover { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.85); }
+
+    .sim-toggle {
+      background: rgba(99,102,241,0.12);
+      border: 1px solid rgba(99,102,241,0.28);
+      border-radius: 8px;
+      padding: 8px 18px;
+      color: #a5b4fc;
+      font-size: 0.72rem;
+      cursor: pointer;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-family: 'DM Mono', monospace;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .sim-toggle:hover, .sim-toggle.active {
+      background: rgba(99,102,241,0.22);
+      border-color: rgba(99,102,241,0.5);
+      color: #c7d2fe;
+    }
+
+    .metric-chip {
+      padding: 6px 12px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 6px;
+      display: flex; gap: 8px; align-items: center;
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .fade-up { animation: fadeUp 0.6s ease both; }
+    .fade-up-1 { animation-delay: 0.1s; }
+    .fade-up-2 { animation-delay: 0.2s; }
+    .fade-up-3 { animation-delay: 0.3s; }
+    .fade-up-4 { animation-delay: 0.45s; }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+    .pulse { animation: pulse-dot 2s ease-in-out infinite; }
+
+    @media (max-width: 860px) {
+      .main-grid { grid-template-columns: 1fr !important; }
+      .metrics-row { grid-template-columns: 1fr !important; }
+      .sim-row { grid-template-columns: 1fr !important; }
+    }
+    @media (max-width: 560px) {
+      .hero-title { font-size: 2.6rem !important; }
+      nav { padding: 16px 20px !important; }
+      .content-pad { padding: 0 16px 60px !important; }
+    }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+
+<script>
+const { useState, useMemo, useEffect, useRef, createElement: h } = React;
+const {
+  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine, Area, AreaChart
+} = Recharts;
+
+// ═══════════════════════════════════════════════════════════════
+// MODELING ENGINE — All formulas are deterministic and commented
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Compute raw (unbounded) cognitive load.
+ *
+ * Additive stressors: meetings (×1.2), context switches (×0.8), deadline intensity (×5)
+ * Subtractive factors: deep work (×1.5, restorative focus), sleep (×1.2, recovery)
+ *
+ * Higher meetings/switches/deadlines → higher load
+ * Higher deep work/sleep → lower load
+ */
+function computeRawLoad({ meetingHours, contextSwitches, deadlineIntensity, deepWorkHours, sleepHours }) {
+  return (meetingHours * 1.2) + (contextSwitches * 0.8) + (deadlineIntensity * 5)
+       - (deepWorkHours * 1.5) - (sleepHours * 1.2);
+}
+
+// Empirical scale bounds based on realistic input extremes
+const RAW_MIN = -25; // ideal: 0h meetings, 0 switches, 1 intensity, 8h deep, 9h sleep
+const RAW_MAX = 75;  // worst: 12h meetings, 20 switches, 5 intensity, 0h deep, 3h sleep
+
+/** Normalize raw load to 0–100 scale */
+function normalizeTo100(raw) {
+  return Math.max(0, Math.min(100, ((raw - RAW_MIN) / (RAW_MAX - RAW_MIN)) * 100));
+}
+
+/**
+ * Fragmentation Index — measures how broken up the workday is.
+ *
+ * Base ratio: how many context switches per hour of deep work?
+ * Multiplied by a meeting density weight: more meetings = denser interruption field.
+ *
+ * meeting_density_weight = 1 + (meeting_hours / total_work_hours)
+ * fragmentation = (context_switches / max(deep_work_hours, 1)) × meeting_density_weight
+ *
+ * Capped at 10 for display. Values > 5 indicate severe fragmentation.
+ */
+function computeFragmentationIndex({ contextSwitches, deepWorkHours, meetingHours, totalWorkHours }) {
+  const meetingDensityWeight = 1 + (meetingHours / Math.max(totalWorkHours, 1));
+  return Math.min(10, (contextSwitches / Math.max(deepWorkHours, 1)) * meetingDensityWeight);
+}
+
+/**
+ * Deep Work Ratio — fraction of working hours spent in focused, uninterrupted work.
+ * = deep_work_hours / total_work_hours
+ * Healthy threshold: ≥ 0.35 (35%)
+ */
+function computeDeepWorkRatio({ deepWorkHours, totalWorkHours }) {
+  return Math.min(1, deepWorkHours / Math.max(totalWorkHours, 1));
+}
+
+/**
+ * Burnout Risk Score for a given state — 0 to 100.
+ *
+ * Three drivers, equally weighted in thirds:
+ *   - Cognitive load contribution (50%): high load → high risk
+ *   - Deep work deficit (25%): low focus ratio → higher burnout
+ *   - Sleep deficit (25%): below 9h baseline → increasing risk
+ */
+function computeBurnoutRisk({ cognitiveLoad, deepWorkRatio, sleepHours }) {
+  const sleepFactor = ((9 - sleepHours) / 9) * 25;
+  return Math.max(0, Math.min(100,
+    (cognitiveLoad * 0.5) + ((1 - deepWorkRatio) * 25) + sleepFactor
+  ));
+}
+
+/**
+ * Generate 7-day burnout trend simulation.
+ *
+ * Today = day 7 (rightmost, uses live inputs).
+ * Days 1–6 are simulated using day-of-week multipliers:
+ *   - Weekdays build up stress toward Friday
+ *   - Weekend shows partial recovery
+ *
+ * The meeting reduction parameter allows simulation mode to project
+ * alternative futures with fewer meetings.
+ */
+function generateTrend(inputs, meetingReductionPct = 0) {
+  const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  // Day-of-week stress multipliers (Mon=low buildup, Fri=peak, Weekend=recovery)
+  const multipliers = [0.65, 0.75, 0.88, 0.95, 1.0, 0.70, 0.60];
+  const adjMeetings = inputs.meetingHours * (1 - meetingReductionPct / 100);
+
+  // Use a seeded pseudo-random for sleep variation (deterministic per session)
+  const sleepVariants = [0.02, -0.03, 0.01, -0.02, 0.03, 0.04, 0.0];
+
+  return days.map((day, i) => {
+    const m = multipliers[i];
+    const dayInputs = {
+      meetingHours: adjMeetings * m,
+      contextSwitches: inputs.contextSwitches * m,
+      deadlineIntensity: Math.max(1, inputs.deadlineIntensity * m),
+      // Deep work is inversely correlated with meeting load — lighter days allow more focus
+      deepWorkHours: inputs.deepWorkHours * (1 + (1 - m) * 0.35),
+      sleepHours: Math.max(4, Math.min(10, inputs.sleepHours + sleepVariants[i] * inputs.sleepHours)),
+      totalWorkHours: inputs.totalWorkHours
+    };
+    const raw = computeRawLoad(dayInputs);
+    const cogLoad = normalizeTo100(raw);
+    const dwRatio = computeDeepWorkRatio(dayInputs);
+    const burnout = computeBurnoutRisk({ cognitiveLoad: cogLoad, deepWorkRatio: dwRatio, sleepHours: dayInputs.sleepHours });
+    return { day, burnout: Math.round(burnout), cogLoad: Math.round(cogLoad) };
+  });
+}
+
+/**
+ * Generate data-driven pattern insights.
+ *
+ * Each insight is conditionally triggered by metric thresholds.
+ * No text is hardcoded — all values are computed from live inputs.
+ * Insight language aims to be precise and actionable, not generic.
+ */
+function generateInsights({ cognitiveLoad, fragmentationIndex, deepWorkRatio, meetingHours, contextSwitches, totalWorkHours, burnoutRisk, sleepHours }) {
+  const insights = [];
+  const meetingPct = Math.round((meetingHours / Math.max(totalWorkHours, 1)) * 100);
+  const dwPct = Math.round(deepWorkRatio * 100);
+
+  if (meetingPct > 40) {
+    const efficiencyDrop = Math.round((1 - deepWorkRatio) * 100);
+    insights.push(`Meetings consume ${meetingPct}% of your working hours. At this density, your deep work efficiency is reduced by roughly ${efficiencyDrop}%. Each meeting-to-focus transition introduces 15–20 minutes of cognitive re-entry overhead.`);
+  }
+
+  if (fragmentationIndex > 3.5) {
+    const fragDesc = fragmentationIndex > 6 ? "critically fragmented" : "highly fragmented";
+    const recoveryTime = Math.round(contextSwitches * 17); // ~17min avg re-entry per switch
+    insights.push(`Your workflow is ${fragDesc} (index: ${fragmentationIndex.toFixed(1)}×). ${contextSwitches} daily context switches generate approximately ${recoveryTime} minutes of cognitive recovery overhead — ${Math.round(recoveryTime / 60)}h of lost productive capacity.`);
+  }
+
+  if (deepWorkRatio < 0.3) {
+    const needed = Math.round(totalWorkHours * 0.35);
+    const deficit = Math.max(0, needed - Math.round(totalWorkHours * deepWorkRatio));
+    insights.push(`Deep work ratio of ${dwPct}% falls below the sustainable threshold of 35%. To reach baseline capacity, you need ${deficit} additional hours of uninterrupted focus within your current ${totalWorkHours}h schedule.`);
+  }
+
+  if (cognitiveLoad > 68) {
+    insights.push(`Cognitive load of ${Math.round(cognitiveLoad)}/100 is operating in the high-stress zone. At this level, working memory capacity is impaired — complex reasoning, long-term planning, and creative output are all significantly degraded.`);
+  }
+
+  if (sleepHours < 6.5) {
+    const sleepDebt = (7.5 - sleepHours).toFixed(1);
+    insights.push(`Sleep at ${sleepHours}h is ${sleepDebt}h below the cognitive performance threshold. Sleep debt compounds across days, amplifying the effect of every other stressor in this model.`);
+  }
+
+  if (burnoutRisk > 65) {
+    insights.push(`7-day burnout trajectory is in the elevated zone (${Math.round(burnoutRisk)}/100). The combination of high load, low recovery, and fragmented attention creates non-linear compounding — each additional stressor has outsized impact at this baseline.`);
+  }
+
+  if (insights.length === 0) {
+    insights.push(`Your cognitive profile is within sustainable operating range. Deep work ratio of ${dwPct}% supports effective knowledge output, and cognitive load of ${Math.round(cognitiveLoad)}/100 leaves adequate capacity for complex tasks. Protect your current sleep and focus patterns.`);
+  }
+
+  return insights;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ANIMATED VALUE HOOK
+// ═══════════════════════════════════════════════════════════════
+
+function useAnimatedValue(target, duration = 550) {
+  const [display, setDisplay] = useState(target);
+  const state = useRef({ prev: target, raf: null });
+
+  useEffect(() => {
+    const start = state.current.prev;
+    const diff = target - start;
+    const startTime = performance.now();
+
+    const tick = (now) => {
+      const t = Math.min(1, (now - startTime) / duration);
+      const ease = 1 - Math.pow(1 - t, 3); // cubic ease-out
+      setDisplay(start + diff * ease);
+      if (t < 1) {
+        state.current.raf = requestAnimationFrame(tick);
+      } else {
+        state.current.prev = target;
+      }
+    };
+    if (state.current.raf) cancelAnimationFrame(state.current.raf);
+    state.current.raf = requestAnimationFrame(tick);
+    return () => { if (state.current.raf) cancelAnimationFrame(state.current.raf); };
+  }, [target, duration]);
+
+  return display;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UI COMPONENTS
+// ═══════════════════════════════════════════════════════════════
+
+/** Large circular cognitive load dial with animated progress arc */
+function CognitiveDial({ value }) {
+  const animated = useAnimatedValue(value);
+  const SIZE = 204;
+  const SW = 10;
+  const R = (SIZE - SW) / 2;
+  const CIRC = 2 * Math.PI * R;
+  const progress = (animated / 100) * CIRC;
+
+  const getColor = (v) => v < 40 ? "#34d399" : v < 65 ? "#fbbf24" : "#f87171";
+  const color = getColor(animated);
+  const label = animated < 40 ? "Sustainable" : animated < 65 ? "Elevated" : "Critical";
+
+  return h("div", {
+    style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }
+  },
+    h("div", { style: { position: "relative", width: SIZE, height: SIZE } },
+      // Subtle glow ring behind
+      h("div", { style: {
+        position: "absolute", inset: SW, borderRadius: "50%",
+        background: `radial-gradient(circle, ${color}08 0%, transparent 70%)`,
+        transition: "background 0.5s"
+      }}),
+      h("svg", { width: SIZE, height: SIZE, style: { transform: "rotate(-90deg)" } },
+        // Background track
+        h("circle", { cx: SIZE/2, cy: SIZE/2, r: R, fill: "none", stroke: "rgba(255,255,255,0.06)", strokeWidth: SW }),
+        // Animated progress arc
+        h("circle", {
+          cx: SIZE/2, cy: SIZE/2, r: R,
+          fill: "none", stroke: color, strokeWidth: SW,
+          strokeDasharray: CIRC,
+          strokeDashoffset: CIRC - progress,
+          strokeLinecap: "round",
+          style: {
+            transition: "stroke 0.5s ease, stroke-dashoffset 0.6s cubic-bezier(0.34,1.56,0.64,1)",
+            filter: `drop-shadow(0 0 10px ${color})`
+          }
+        })
+      ),
+      // Center content
+      h("div", {
+        style: {
+          position: "absolute", inset: 0, display: "flex",
+          flexDirection: "column", alignItems: "center", justifyContent: "center"
+        }
+      },
+        h("span", {
+          style: {
+            fontSize: "2.8rem", fontFamily: "'DM Mono', monospace", color,
+            letterSpacing: "-3px", lineHeight: 1,
+            transition: "color 0.5s"
+          }
+        }, Math.round(animated)),
+        h("span", {
+          style: { fontSize: "0.62rem", color: "rgba(255,255,255,0.3)", letterSpacing: "0.14em", marginTop: 4, textTransform: "uppercase" }
+        }, "/ 100")
+      )
+    ),
+    h("div", { style: { textAlign: "center" } },
+      h("div", { style: { fontSize: "0.65rem", color: "rgba(255,255,255,0.25)", letterSpacing: "0.14em", textTransform: "uppercase", marginBottom: 2 } }, "Cognitive Load"),
+      h("div", { style: { fontSize: "0.8rem", color, transition: "color 0.5s" } }, label)
+    )
+  );
+}
+
+/** Animated horizontal meter bar */
+function MeterBar({ label, value, max = 10, unit = "", color = "#818cf8", sublabel }) {
+  const pct = Math.min(100, (value / max) * 100);
+  const animated = useAnimatedValue(pct);
+  const displayVal = typeof value === "number"
+    ? (Number.isInteger(value) ? value : value.toFixed(2))
+    : value;
+
+  return h("div", { style: { marginBottom: "1.3rem" } },
+    h("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 6 } },
+      h("span", { style: { fontSize: "0.68rem", color: "rgba(255,255,255,0.35)", letterSpacing: "0.1em", textTransform: "uppercase" } }, label),
+      h("span", { style: { fontSize: "0.72rem", fontFamily: "'DM Mono', monospace", color } }, `${displayVal}${unit}`)
+    ),
+    h("div", { style: { height: 4, background: "rgba(255,255,255,0.06)", borderRadius: 99, overflow: "hidden" } },
+      h("div", {
+        style: {
+          height: "100%", width: `${animated}%`, background: color, borderRadius: 99,
+          boxShadow: `0 0 8px ${color}80`,
+          transition: "width 0.6s cubic-bezier(0.34,1.56,0.64,1)"
+        }
+      })
+    ),
+    sublabel && h("div", { style: { fontSize: "0.62rem", color: "rgba(255,255,255,0.2)", marginTop: 5 } }, sublabel)
+  );
+}
+
+/** Step-increment number input */
+function NumberInput({ label, value, min = 0, max = 24, step = 0.5, onChange, unit = "h" }) {
+  return h("div", { style: { marginBottom: "1.1rem" } },
+    h("label", { style: { display: "block", fontSize: "0.68rem", color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 } }, label),
+    h("div", { style: { display: "flex", alignItems: "center", gap: 8 } },
+      h("button", {
+        className: "btn-step",
+        onClick: () => onChange(Math.max(min, Math.round((value - step) * 10) / 10))
+      }, "−"),
+      h("div", {
+        style: {
+          flex: 1, textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: "0.95rem",
+          color: "rgba(255,255,255,0.8)", background: "rgba(255,255,255,0.04)",
+          border: "1px solid rgba(255,255,255,0.08)", borderRadius: 7, padding: "7px 0"
+        }
+      }, `${value}${unit}`),
+      h("button", {
+        className: "btn-step",
+        onClick: () => onChange(Math.min(max, Math.round((value + step) * 10) / 10))
+      }, "+")
+    )
+  );
+}
+
+/** Range slider input */
+function SliderInput({ label, value, min = 1, max = 5, step = 1, onChange, unit = "" }) {
+  const pct = ((value - min) / (max - min)) * 100;
+  const gradient = `linear-gradient(to right, #6366f1 ${pct}%, rgba(255,255,255,0.08) ${pct}%)`;
+
+  return h("div", { style: { marginBottom: "1.2rem" } },
+    h("div", { style: { display: "flex", justifyContent: "space-between", marginBottom: 7 } },
+      h("label", { style: { fontSize: "0.68rem", color: "rgba(255,255,255,0.35)", textTransform: "uppercase", letterSpacing: "0.1em" } }, label),
+      h("span", { style: { fontSize: "0.72rem", fontFamily: "'DM Mono', monospace", color: "rgba(255,255,255,0.65)" } }, `${value}${unit}`)
+    ),
+    h("input", {
+      type: "range", min, max, step, value,
+      onChange: e => onChange(Number(e.target.value)),
+      style: { background: gradient }
+    })
+  );
+}
+
+/** Custom recharts tooltip */
+function CustomTooltip({ active, payload, label }) {
+  if (!active || !payload?.length) return null;
+  return h("div", {
+    style: {
+      background: "rgba(7,7,15,0.96)", border: "1px solid rgba(255,255,255,0.1)",
+      borderRadius: 8, padding: "8px 14px", fontSize: "0.7rem", fontFamily: "'DM Mono', monospace"
+    }
+  },
+    h("div", { style: { color: "rgba(255,255,255,0.35)", marginBottom: 5 } }, label),
+    ...payload.map(p => h("div", { key: p.dataKey, style: { color: p.color, marginBottom: 2 } }, `${p.name}: ${p.value}`))
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MAIN APPLICATION
+// ═══════════════════════════════════════════════════════════════
+
+function App() {
+  // User input state
+  const [meetingHours,      setMeetingHours]      = useState(4);
+  const [deepWorkHours,     setDeepWorkHours]      = useState(2);
+  const [contextSwitches,   setContextSwitches]    = useState(8);
+  const [sleepHours,        setSleepHours]         = useState(7);
+  const [deadlineIntensity, setDeadlineIntensity]  = useState(3);
+  const [energyLevel,       setEnergyLevel]        = useState(3);
+  const [meetingReduction,  setMeetingReduction]   = useState(20);
+  const [showSim,           setShowSim]            = useState(false);
+
+  // Total work = meetings + deep work + 2h admin/misc
+  const totalWorkHours = meetingHours + deepWorkHours + 2;
+
+  // ── Metric computation (memoized for performance) ──
+  const metrics = useMemo(() => {
+    const simMeetingHours = showSim
+      ? meetingHours * (1 - meetingReduction / 100)
+      : meetingHours;
+
+    const inputs = { meetingHours: simMeetingHours, contextSwitches, deadlineIntensity, deepWorkHours, sleepHours, totalWorkHours };
+
+    const raw = computeRawLoad(inputs);
+    const cognitiveLoad = normalizeTo100(raw);
+    const fragmentationIndex = computeFragmentationIndex(inputs);
+    const deepWorkRatio = computeDeepWorkRatio(inputs);
+    const burnoutRisk = computeBurnoutRisk({ cognitiveLoad, deepWorkRatio, sleepHours });
+    const trendData = generateTrend(
+      { meetingHours, contextSwitches, deadlineIntensity, deepWorkHours, sleepHours, totalWorkHours },
+      showSim ? meetingReduction : 0
+    );
+    const insights = generateInsights({
+      cognitiveLoad, fragmentationIndex, deepWorkRatio,
+      meetingHours: simMeetingHours, contextSwitches, totalWorkHours, burnoutRisk, sleepHours
+    });
+
+    return { cognitiveLoad, fragmentationIndex, deepWorkRatio, burnoutRisk, trendData, insights };
+  }, [meetingHours, deepWorkHours, contextSwitches, sleepHours, deadlineIntensity, energyLevel, meetingReduction, showSim, totalWorkHours]);
+
+  const burnoutColor = metrics.burnoutRisk > 65 ? "#f87171" : metrics.burnoutRisk > 40 ? "#fbbf24" : "#34d399";
+  const fragColor = metrics.fragmentationIndex > 5 ? "#f87171" : metrics.fragmentationIndex > 3 ? "#fbbf24" : "#34d399";
+
+  // ── RENDER ──
+  return h("div", {
+    style: {
+      minHeight: "100vh",
+      backgroundImage: "radial-gradient(ellipse 90% 55% at 50% -5%, rgba(99,102,241,0.13) 0%, transparent 65%)"
+    }
+  },
+
+    // ── NAV ──
+    h("nav", {
+      style: {
+        display: "flex", justifyContent: "space-between", alignItems: "center",
+        padding: "20px 40px", borderBottom: "1px solid rgba(255,255,255,0.055)",
+        backdropFilter: "blur(16px)", position: "sticky", top: 0, zIndex: 100,
+        background: "rgba(7,7,15,0.82)"
+      }
+    },
+      // Logo
+      h("div", { style: { display: "flex", alignItems: "center", gap: 10 } },
+        h("div", {
+          style: {
+            width: 26, height: 26, borderRadius: 7,
+            background: "linear-gradient(135deg, #4f46e5, #818cf8)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            boxShadow: "0 0 16px rgba(99,102,241,0.35)"
+          }
+        },
+          h("div", { style: { width: 8, height: 8, borderRadius: "50%", background: "rgba(255,255,255,0.9)" } })
+        ),
+        h("span", { style: { fontFamily: "'Syne', sans-serif", fontWeight: 700, fontSize: "0.95rem", letterSpacing: "0.06em" } }, "CORTEX")
+      ),
+      // Nav links
+      h("div", { style: { display: "flex", gap: 28, fontSize: "0.68rem", color: "rgba(255,255,255,0.28)", letterSpacing: "0.12em", textTransform: "uppercase" } },
+        h("span", null, "System"),
+        h("span", null, "Model"),
+        h("span", null, "Insights")
+      ),
+      // Version
+      h("div", { style: { fontSize: "0.65rem", fontFamily: "'DM Mono', monospace", color: "rgba(255,255,255,0.18)", letterSpacing: "0.06em" } },
+        "v0.4 · alpha"
+      )
+    ),
+
+    h("div", {
+      className: "content-pad",
+      style: { maxWidth: 1100, margin: "0 auto", padding: "0 28px 80px" }
+    },
+
+      // ── HERO ──
+      h("div", { style: { textAlign: "center", padding: "80px 0 64px" } },
+        // Status pill
+        h("div", {
+          className: "fade-up",
+          style: {
+            display: "inline-flex", alignItems: "center", gap: 8,
+            background: "rgba(99,102,241,0.09)", border: "1px solid rgba(99,102,241,0.22)",
+            borderRadius: 99, padding: "5px 16px", marginBottom: 28
+          }
+        },
+          h("span", {
+            className: "pulse",
+            style: { width: 6, height: 6, borderRadius: "50%", background: "#6366f1", display: "block", boxShadow: "0 0 6px #6366f1" }
+          }),
+          h("span", {
+            style: { fontSize: "0.66rem", color: "#a5b4fc", letterSpacing: "0.14em", textTransform: "uppercase", fontFamily: "'DM Mono', monospace" }
+          }, "Cognitive Systems Modeling")
+        ),
+
+        // Title
+        h("h1", {
+          className: "hero-title fade-up fade-up-1",
+          style: { fontFamily: "'Syne', sans-serif", fontWeight: 800, fontSize: "clamp(2.8rem, 7vw, 5.5rem)", letterSpacing: "-0.03em", lineHeight: 1, marginBottom: 22 }
+        },
+          h("span", {
+            style: { background: "linear-gradient(160deg, #fff 20%, rgba(255,255,255,0.5) 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", display: "block" }
+          }, "Model your"),
+          h("span", {
+            style: { background: "linear-gradient(135deg, #818cf8 0%, #6366f1 100%)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", display: "block" }
+          }, "cognitive system.")
+        ),
+
+        // Description
+        h("p", {
+          className: "fade-up fade-up-2",
+          style: { fontSize: "1rem", color: "rgba(255,255,255,0.32)", maxWidth: 500, margin: "0 auto", lineHeight: 1.75, fontWeight: 300 }
+        }, "Cortex quantifies your mental bandwidth through structured daily inputs — calculating cognitive load, fragmentation, and burnout trajectory across a 7-day horizon.")
+      ),
+
+      // ── MAIN GRID ──
+      h("div", {
+        className: "main-grid fade-up fade-up-3",
+        style: { display: "grid", gridTemplateColumns: "330px 1fr", gap: 14, marginBottom: 14 }
+      },
+
+        // ── INPUT PANEL ──
+        h("div", {
+          className: "card",
+          style: { padding: "26px 22px" }
+        },
+          h("div", { style: { marginBottom: 22 } },
+            h("div", { style: { fontSize: "0.62rem", color: "rgba(255,255,255,0.2)", letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: 3 } }, "Daily Inputs"),
+            h("div", { style: { fontSize: "0.85rem", color: "rgba(255,255,255,0.5)", fontWeight: 300 } }, "Configure your workday profile")
+          ),
+
+          h("div", { style: { borderBottom: "1px solid rgba(255,255,255,0.055)", marginBottom: 20, paddingBottom: 20 } },
+            h(NumberInput, { label: "Meeting hours", value: meetingHours, min: 0, max: 12, step: 0.5, onChange: setMeetingHours }),
+            h(NumberInput, { label: "Deep work hours", value: deepWorkHours, min: 0, max: 12, step: 0.5, onChange: setDeepWorkHours }),
+            h(NumberInput, { label: "Context switches", value: contextSwitches, min: 0, max: 30, step: 1, onChange: setContextSwitches, unit: "×" }),
+            h(NumberInput, { label: "Sleep hours", value: sleepHours, min: 3, max: 12, step: 0.5, onChange: setSleepHours })
+          ),
+
+          h(SliderInput, { label: "Deadline intensity", value: deadlineIntensity, min: 1, max: 5, onChange: setDeadlineIntensity }),
+          h(SliderInput, { label: "Energy level", value: energyLevel, min: 1, max: 5, onChange: setEnergyLevel }),
+
+          // Total hours chip
+          h("div", {
+            style: {
+              marginTop: 18, padding: "12px 14px",
+              background: "rgba(99,102,241,0.06)", border: "1px solid rgba(99,102,241,0.14)",
+              borderRadius: 10, display: "flex", justifyContent: "space-between", alignItems: "center"
+            }
+          },
+            h("span", { style: { fontSize: "0.65rem", color: "rgba(165,180,252,0.5)", textTransform: "uppercase", letterSpacing: "0.1em" } }, "Total Work Hours"),
+            h("span", { style: { fontFamily: "'DM Mono', monospace", fontSize: "1rem", color: "#a5b4fc" } }, `${totalWorkHours}h`)
+          )
+        ),
+
+        // ── RIGHT COLUMN ──
+        h("div", { style: { display: "grid", gridTemplateRows: "auto 1fr", gap: 14 } },
+
+          // Top row: Dial + Meters
+          h("div", {
+            className: "metrics-row",
+            style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }
+          },
+
+            // Cognitive Load Dial
+            h("div", {
+              className: "card",
+              style: { padding: "28px 20px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8 }
+            },
+              h(CognitiveDial, { value: metrics.cognitiveLoad })
+            ),
+
+            // System Indices
+            h("div", {
+              className: "card",
+              style: { padding: "26px 22px", display: "flex", flexDirection: "column", justifyContent: "center" }
+            },
+              h("div", { style: { fontSize: "0.62rem", color: "rgba(255,255,255,0.2)", letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: 22 } }, "System Indices"),
+
+              h(MeterBar, {
+                label: "Fragmentation Index",
+                value: parseFloat(metrics.fragmentationIndex.toFixed(2)),
+                max: 10,
+                color: fragColor,
+                sublabel: `${contextSwitches} switches / ${Math.max(1, deepWorkHours)}h deep work`
+              }),
+              h(MeterBar, {
+                label: "Deep Work Ratio",
+                value: parseFloat(metrics.deepWorkRatio.toFixed(2)),
+                max: 1,
+                color: "#818cf8",
+                sublabel: `${Math.round(metrics.deepWorkRatio * 100)}% of working hours in deep focus`
+              }),
+              h(MeterBar, {
+                label: "7-Day Burnout Risk",
+                value: parseFloat(metrics.burnoutRisk.toFixed(1)),
+                max: 100,
+                color: burnoutColor,
+                sublabel: `${metrics.burnoutRisk < 40 ? "Low" : metrics.burnoutRisk < 65 ? "Moderate" : "High"} risk trajectory`
+              })
+            )
+          ),
+
+          // Burnout Trend Chart
+          h("div", {
+            className: "card",
+            style: { padding: "24px 20px 14px" }
+          },
+            h("div", {
+              style: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }
+            },
+              h("div", null,
+                h("div", { style: { fontSize: "0.62rem", color: "rgba(255,255,255,0.2)", letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: 3 } }, "Burnout Risk Forecast"),
+                h("div", { style: { fontSize: "0.8rem", color: "rgba(255,255,255,0.35)", fontWeight: 300 } }, "7-day rolling simulation")
+              ),
+              h("div", {
+                style: { display: "flex", gap: 18, fontSize: "0.65rem", fontFamily: "'DM Mono', monospace", color: "rgba(255,255,255,0.25)", alignItems: "center" }
+              },
+                h("span", { style: { color: "#f87171" } }, "— burnout risk"),
+                h("span", { style: { color: "#5b5fef" } }, "— cognitive load")
+              )
+            ),
+
+            h(ResponsiveContainer, { width: "100%", height: 150 },
+              h(LineChart, {
+                data: metrics.trendData,
+                margin: { top: 5, right: 10, left: -24, bottom: 0 }
+              },
+                h(XAxis, {
+                  dataKey: "day",
+                  tick: { fontSize: 10, fill: "rgba(255,255,255,0.25)", fontFamily: "'DM Mono', monospace" },
+                  axisLine: false, tickLine: false
+                }),
+                h(YAxis, {
+                  tick: { fontSize: 10, fill: "rgba(255,255,255,0.2)", fontFamily: "'DM Mono', monospace" },
+                  axisLine: false, tickLine: false, domain: [0, 100]
+                }),
+                h(Tooltip, { content: h(CustomTooltip, null) }),
+                h(ReferenceLine, { y: 65, stroke: "rgba(248,113,113,0.18)", strokeDasharray: "3 3" }),
+                h(Line, {
+                  type: "monotone", dataKey: "burnout", name: "Burnout Risk",
+                  stroke: "#f87171", strokeWidth: 2, dot: false,
+                  style: { filter: "drop-shadow(0 0 4px rgba(248,113,113,0.5))" }
+                }),
+                h(Line, {
+                  type: "monotone", dataKey: "cogLoad", name: "Cog. Load",
+                  stroke: "#5b5fef", strokeWidth: 1.5, dot: false, strokeOpacity: 0.65
+                })
+              )
+            )
+          )
+        )
+      ),
+
+      // ── SIMULATION MODE ──
+      h("div", {
+        className: "card fade-up fade-up-4",
+        style: { padding: "24px 24px", marginBottom: 14 }
+      },
+        h("div", {
+          style: { display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: showSim ? 24 : 0 }
+        },
+          h("div", null,
+            h("div", { style: { fontSize: "0.62rem", color: "rgba(255,255,255,0.2)", letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: 4 } }, "Simulation Mode"),
+            h("div", { style: { fontSize: "0.85rem", color: "rgba(255,255,255,0.4)", fontWeight: 300 } }, "Project the impact of reducing meeting load")
+          ),
+          h("button", {
+            className: `sim-toggle${showSim ? " active" : ""}`,
+            onClick: () => setShowSim(v => !v)
+          }, showSim ? "Exit Simulation" : "Run Simulation")
+        ),
+
+        showSim && h("div", {
+          className: "sim-row",
+          style: { display: "grid", gridTemplateColumns: "1fr 180px 180px", gap: 20, alignItems: "center" }
+        },
+          h("div", null,
+            h(SliderInput, {
+              label: "Reduce meetings by",
+              value: meetingReduction, min: 0, max: 80, step: 5,
+              onChange: setMeetingReduction, unit: "%"
+            }),
+            h("div", {
+              style: { fontSize: "0.68rem", color: "rgba(255,255,255,0.22)", fontFamily: "'DM Mono', monospace", marginTop: 6 }
+            }, `${meetingHours}h → ${(meetingHours * (1 - meetingReduction / 100)).toFixed(1)}h meeting hours`)
+          ),
+          h("div", {
+            style: {
+              padding: "18px 16px", background: "rgba(99,102,241,0.07)", borderRadius: 12,
+              border: "1px solid rgba(99,102,241,0.14)", textAlign: "center"
+            }
+          },
+            h("div", { style: { fontSize: "0.6rem", color: "rgba(165,180,252,0.45)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 6 } }, "Projected Load"),
+            h("div", { style: { fontFamily: "'DM Mono', monospace", fontSize: "2.2rem", color: "#a5b4fc", lineHeight: 1 } }, Math.round(metrics.cognitiveLoad)),
+            h("div", { style: { fontSize: "0.62rem", color: "rgba(255,255,255,0.2)", marginTop: 4 } }, "/ 100")
+          ),
+          h("div", {
+            style: {
+              padding: "18px 16px", background: "rgba(52,211,153,0.04)", borderRadius: 12,
+              border: `1px solid ${burnoutColor}22`, textAlign: "center"
+            }
+          },
+            h("div", { style: { fontSize: "0.6rem", color: `${burnoutColor}80`, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 6 } }, "Burnout Risk"),
+            h("div", { style: { fontFamily: "'DM Mono', monospace", fontSize: "2.2rem", color: burnoutColor, lineHeight: 1 } }, Math.round(metrics.burnoutRisk)),
+            h("div", { style: { fontSize: "0.62rem", color: "rgba(255,255,255,0.2)", marginTop: 4 } }, "7-day")
+          )
+        )
+      ),
+
+      // ── PATTERN INSIGHTS ──
+      h("div", {
+        className: "card",
+        style: { padding: "28px 26px" }
+      },
+        h("div", { style: { marginBottom: 22 } },
+          h("div", { style: { fontSize: "0.62rem", color: "rgba(255,255,255,0.2)", letterSpacing: "0.16em", textTransform: "uppercase", marginBottom: 4 } }, "Pattern Analysis"),
+          h("div", { style: { fontSize: "0.85rem", color: "rgba(255,255,255,0.4)", fontWeight: 300 } }, "Derived from your current cognitive profile — not generic advice")
+        ),
+
+        // Insights list
+        h("div", { style: { display: "grid", gap: 12, marginBottom: 20 } },
+          ...metrics.insights.map((insight, i) =>
+            h("div", {
+              key: i,
+              style: {
+                display: "flex", gap: 16, padding: "16px 18px",
+                background: "rgba(255,255,255,0.02)", borderRadius: 10,
+                border: "1px solid rgba(255,255,255,0.055)"
+              }
+            },
+              h("div", { style: { flexShrink: 0, marginTop: 2 } },
+                h("div", {
+                  style: {
+                    width: 22, height: 22, borderRadius: 6,
+                    background: "rgba(99,102,241,0.12)", border: "1px solid rgba(99,102,241,0.22)",
+                    display: "flex", alignItems: "center", justifyContent: "center"
+                  }
+                },
+                  h("span", { style: { fontSize: "0.6rem", fontFamily: "'DM Mono', monospace", color: "#818cf8" } }, `0${i + 1}`)
+                )
+              ),
+              h("p", { style: { fontSize: "0.85rem", color: "rgba(255,255,255,0.5)", lineHeight: 1.75, fontWeight: 300 } }, insight)
+            )
+          )
+        ),
+
+        // Metric snapshot chips
+        h("div", { style: { display: "flex", gap: 10, flexWrap: "wrap" } },
+          ...[
+            { label: "CL Score", value: `${Math.round(metrics.cognitiveLoad)}/100` },
+            { label: "Frag Index", value: metrics.fragmentationIndex.toFixed(2) },
+            { label: "DW Ratio", value: `${Math.round(metrics.deepWorkRatio * 100)}%` },
+            { label: "Burnout Risk", value: `${Math.round(metrics.burnoutRisk)}/100` },
+            { label: "Total Hours", value: `${totalWorkHours}h` },
+          ].map(m =>
+            h("div", { key: m.label, className: "metric-chip" },
+              h("span", { style: { fontSize: "0.6rem", color: "rgba(255,255,255,0.22)", textTransform: "uppercase", letterSpacing: "0.08em" } }, m.label),
+              h("span", { style: { fontFamily: "'DM Mono', monospace", fontSize: "0.72rem", color: "rgba(255,255,255,0.55)" } }, m.value)
+            )
+          )
+        )
+      ),
+
+      // ── FOOTER ──
+      h("div", {
+        style: {
+          textAlign: "center", marginTop: 52,
+          fontSize: "0.62rem", color: "rgba(255,255,255,0.12)",
+          letterSpacing: "0.08em", fontFamily: "'DM Mono', monospace"
+        }
+      }, "CORTEX · COGNITIVE LOAD INTELLIGENCE SYSTEM · ALL COMPUTATIONS ARE DETERMINISTIC AND CLIENT-SIDE")
+    )
+  );
+}
+
+// Mount
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(h(App, null));
+</script>
+</body>
+</html>
