@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="style.css" />
   </head>
 
-  <body>
+  <body class="cyborg">
     <div class="bg" aria-hidden="true"></div>
 
     <header class="topbar">
@@ -42,6 +42,7 @@
               <option value="arm" selected>Arm</option>
               <option value="hand">Hand</option>
               <option value="leg">Leg</option>
+              <option value="foot">Foot</option>
               <option value="eye">Ocular</option>
               <option value="spine">Spine</option>
             </select>
@@ -60,8 +61,13 @@
           </div>
 
           <div class="field">
-            <label for="shellColor">Shell color</label>
-            <input id="shellColor" type="color" value="#e9eef6" />
+            <label for="colorway">Colorway</label>
+            <select id="colorway">
+              <option value="silver" selected>Silver</option>
+              <option value="black">Black</option>
+              <option value="blue">Blue</option>
+              <option value="pink">Pink</option>
+            </select>
           </div>
 
           <div class="field">
@@ -120,10 +126,10 @@
 
         <button id="spec" class="btn wide">Generate spec sheet</button>
 
-        <div class="specBox" id="specBox" aria-live="polite">
+        <!-- <div class="specBox" id="specBox" aria-live="polite">
           <div class="specTitle" id="specTitle">Your spec sheet will appear here ▢</div>
           <div class="specBody" id="specBody"></div>
-        </div>
+        </div> -->
       </section>
 
       <section class="panel stage">
@@ -143,16 +149,9 @@
           <div class="frame" id="frame" role="img" aria-label="Prosthetic schematic preview"></div>
         </div>
 
-        <div class="hint">
-          Export creates a PNG you can drop into your case study.
-        </div>
+        <div class="hint">Export creates a PNG you can drop into your case study.</div>
       </section>
     </main>
-
-    <footer class="footer">
-      <span>Augment Studio ▢ prosthetic configurator</span>
-      <span class="muted">local-only, no backend required</span>
-    </footer>
 
     <script src="script.js"></script>
   </body>

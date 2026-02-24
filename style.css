@@ -42,6 +42,7 @@ body{
   opacity: 0.9;
 }
 
+/* Topbar */
 .topbar{
   position: sticky;
   top: 0;
@@ -107,44 +108,43 @@ body{
 .btn:active{ transform: translateY(0) scale(0.99); }
 
 .btn.primary{
-  background: rgba(18,22,30,0.92);
-  color: rgba(255,255,255,0.92);
-  border-color: rgba(18,22,30,0.18);
-  box-shadow: 0 12px 28px rgba(18,22,30,0.20);
-}
-.btn.primary:hover{
-  background: rgba(18,22,30,0.86);
+  background: rgba(58,123,213,0.10);
+  border-color: rgba(58,123,213,0.22);
 }
 
-.btn.wide{ width:100%; }
-
+/* Layout */
 .shell{
+  max-width: 1180px;
+  margin: 18px auto 40px;
+  padding: 0 18px;
   display:grid;
-  grid-template-columns: 460px 1fr;
-  gap: 16px;
-  padding: 18px;
-  align-items:start;
+  grid-template-columns: 360px 1fr;
+  gap: 18px;
 }
 
 .panel{
-  border: 1px solid var(--stroke2);
-  background: var(--panel);
   border-radius: var(--r);
+  background: var(--panel);
+  border: 1px solid var(--stroke2);
   box-shadow: var(--shadow);
-  padding: 14px;
   overflow:hidden;
 }
 
-.creator h2, .stage h2{
-  margin: 0 0 12px;
-  font-size: 13px;
-  letter-spacing: 0.2px;
-  color: rgba(18,22,30,0.86);
+.creator{
+  padding: 18px;
+}
+
+.creator h2{
+  margin: 0 0 14px;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .field{
-  display:grid;
-  gap: 8px;
+  display:flex;
+  flex-direction:column;
+  gap: 7px;
   margin-bottom: 12px;
 }
 
@@ -153,111 +153,94 @@ label{
   color: var(--muted);
 }
 
+input[type="text"], select{
+  border-radius: 14px;
+  border: 1px solid var(--stroke2);
+  background: rgba(255,255,255,0.70);
+  padding: 10px 12px;
+  outline: none;
+  transition: box-shadow 140ms ease, border 140ms ease;
+}
+
+input[type="text"]:focus, select:focus{
+  border-color: rgba(58,123,213,0.40);
+  box-shadow: 0 0 0 4px rgba(58,123,213,0.14);
+}
+
 .grid2{
   display:grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
 
-input[type="text"], select{
-  width: 100%;
-  padding: 12px;
-  border-radius: 14px;
-  border: 1px solid var(--stroke2);
-  background: rgba(255,255,255,0.80);
-  color: var(--text);
-  outline: none;
-  transition: border 120ms ease, box-shadow 120ms ease, background 120ms ease;
-}
-input[type="text"]:focus, select:focus{
-  border-color: rgba(58,123,213,0.35);
-  box-shadow: 0 0 0 4px rgba(58,123,213,0.16);
-  background: rgba(255,255,255,0.92);
-}
-input[type="color"]{
-  width:100%;
-  height: 44px;
-  border-radius: 14px;
-  border: 1px solid var(--stroke2);
-  background: rgba(255,255,255,0.80);
-  padding: 6px;
-}
-
-input[type="range"]{
-  width: 100%;
-  accent-color: rgba(18,22,30,0.9);
-}
-
 .row{
   display:flex;
-  justify-content: space-between;
-  align-items: center;
   gap: 10px;
 }
 
-.chip, .badge{
-  font-size: 11px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  border: 1px solid var(--stroke2);
-  background: rgba(255,255,255,0.70);
-  color: rgba(18,22,30,0.72);
+.row .btn{
+  flex: 1;
 }
 
-.divider{
-  height: 1px;
-  background: var(--stroke2);
-  margin: 14px 0;
-}
-
-.specBox{
-  margin-top: 12px;
-  border-radius: var(--r2);
-  border: 1px solid var(--stroke2);
-  background: rgba(255,255,255,0.70);
-  padding: 12px;
-}
-.specTitle{
-  font-size: 12px;
-  color: rgba(18,22,30,0.86);
-}
-.specBody{
-  margin-top: 8px;
+.hint{
   font-size: 12px;
   color: var(--muted);
-  line-height: 1.5;
+  padding: 0 18px 18px;
 }
-.specBody ul{ margin: 10px 0 0 18px; padding:0; }
-.specBody li{ margin: 6px 0; }
+
+.stage{
+  padding: 18px;
+  display:flex;
+  flex-direction:column;
+  gap: 14px;
+}
 
 .stageHeader{
   display:flex;
-  justify-content: space-between;
-  align-items: flex-start;
+  align-items:flex-start;
+  justify-content:space-between;
   gap: 12px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--stroke2);
 }
-.muted{
-  color: var(--muted);
+
+.stageHeader h2{
+  margin:0;
   font-size: 12px;
-  margin: 6px 0 0;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
+.stageHeader p{
+  margin: 6px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
 .mini{
   display:flex;
   gap: 8px;
-  flex-wrap: wrap;
-  justify-content: flex-end;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+
+.badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  border-radius: 999px;
+  border: 1px solid var(--stroke2);
+  background: rgba(255,255,255,0.70);
+  padding: 8px 10px;
+  font-size: 12px;
+  color: rgba(18,22,30,0.78);
+  white-space: nowrap;
 }
 
 .previewWrap{
   position: relative;
-  margin-top: 14px;
-  border-radius: var(--r2);
+  border-radius: var(--r);
+  background: rgba(255,255,255,0.58);
   border: 1px solid var(--stroke2);
-  background: rgba(255,255,255,0.60);
   box-shadow: var(--shadow2);
-  height: 560px;
+  padding: 18px;
   overflow: hidden;
   display:grid;
   place-items:center;
@@ -273,6 +256,7 @@ input[type="range"]{
   pointer-events:none;
 }
 
+/* Keep preview sizing controlled */
 .frame{
   width: min(520px, 92%);
   aspect-ratio: 1/1;
@@ -297,40 +281,194 @@ input[type="range"]{
   font-size: 12px;
   color: rgba(18,22,30,0.82);
   backdrop-filter: blur(10px);
-  box-shadow: 0 10px 28px rgba(18,22,30,0.10);
-}
-
-.hint{
-  margin-top: 12px;
-  font-size: 12px;
-  color: var(--muted);
+  box-shadow: 0 10px 28px rgba(18,22,30,0.08);
 }
 
 .footer{
-  padding: 18px;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 14px 18px 30px;
   display:flex;
-  justify-content: space-between;
+  justify-content:space-between;
   gap: 10px;
+  border-top: 1px solid var(--stroke2);
   color: var(--muted);
   font-size: 12px;
 }
 
-/* dropdown affordance */
-select{
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  cursor: pointer;
-  padding-right: 44px;
+.muted{ color: var(--muted); }
 
-  background-image:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='none' stroke='rgba(18,22,30,0.65)' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 14px center;
-  background-size: 18px 18px;
+@media (max-width: 920px){
+  .shell{ grid-template-columns: 1fr; }
+  .mini{ justify-content:flex-start; }
 }
 
-@media (max-width: 1100px){
-  .shell{ grid-template-columns: 1fr; }
-  .previewWrap{ height: 480px; }
+@media (max-width: 560px){
+  .topbar{
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+  .actions{
+    width: 100%;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+  .grid2{ grid-template-columns: 1fr; }
+}
+
+/* Layers used by the preview (JS injects layers into #frame) */
+.layer-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+}
+
+.layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+#moduleImg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: none;
+}
+
+/* keep tint layer available, but we’ll set opacity to 0 in JS */
+.layer-tint {
+  position: absolute;
+  inset: 0;
+  mix-blend-mode: color;
+  opacity: 0;
+  pointer-events: none;
+  transition: background 200ms ease, opacity 200ms ease;
+}
+
+.layer-glow {
+  position: absolute;
+  inset: 0;
+  mix-blend-mode: screen;
+  pointer-events: none;
+  transition: background 200ms ease, opacity 200ms ease;
+}
+
+/* ==========================================================
+   CYBORG SKIN — PAINT ONLY (keeps layout)
+   ========================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+body.cyborg{
+  --cy-bg: #06070a;
+  --cy-panel: rgba(10,12,16,0.72);
+  --cy-stroke: rgba(255,255,255,0.10);
+  --cy-stroke2: rgba(255,255,255,0.06);
+  --cy-text: rgba(245,248,255,0.92);
+  --cy-muted: rgba(245,248,255,0.58);
+  --cy-accent: #5ef2ff;
+
+  background: var(--cy-bg);
+  color: var(--cy-text);
+
+  font-family: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: geometricPrecision;
+}
+
+body.cyborg .bg{
+  background-image:
+    radial-gradient(900px 620px at 18% 10%, rgba(94,242,255,0.10), transparent 60%),
+    radial-gradient(900px 620px at 82% 18%, rgba(255,255,255,0.05), transparent 62%),
+    linear-gradient(to right, rgba(255,255,255,0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255,255,255,0.06) 1px, transparent 1px),
+    repeating-linear-gradient(to bottom, rgba(255,255,255,0.04), rgba(255,255,255,0.04) 1px, transparent 1px, transparent 6px);
+  background-size: auto, auto, 56px 56px, 56px 56px, auto;
+}
+
+body.cyborg .topbar{
+  background: rgba(6,7,10,0.72);
+  border-bottom-color: var(--cy-stroke2);
+}
+
+body.cyborg .panel{
+  background: var(--cy-panel);
+  border-color: var(--cy-stroke2);
+  box-shadow: 0 18px 70px rgba(0,0,0,0.55);
+}
+
+body.cyborg .brandText p,
+body.cyborg label,
+body.cyborg .muted,
+body.cyborg .footer{
+  color: var(--cy-muted);
+}
+
+body.cyborg .mark{
+  border-color: rgba(94,242,255,0.18);
+  background:
+    radial-gradient(circle at 30% 25%, rgba(94,242,255,0.35), rgba(94,242,255,0.06) 58%, rgba(0,0,0,0));
+  box-shadow: 0 0 24px rgba(94,242,255,0.12);
+}
+
+body.cyborg input[type="text"],
+body.cyborg select{
+  background: rgba(0,0,0,0.28);
+  border-color: rgba(255,255,255,0.10);
+  color: var(--cy-text);
+}
+
+body.cyborg input[type="text"]:focus,
+body.cyborg select:focus{
+  border-color: rgba(94,242,255,0.35);
+  box-shadow: 0 0 0 4px rgba(94,242,255,0.12);
+}
+
+body.cyborg .btn{
+  background: rgba(0,0,0,0.28);
+  border-color: rgba(255,255,255,0.10);
+  color: rgba(245,248,255,0.90);
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.05) inset,
+    0 10px 26px rgba(0,0,0,0.45);
+}
+
+body.cyborg .btn:hover{
+  border-color: rgba(94,242,255,0.26);
+  box-shadow:
+    0 0 0 1px rgba(94,242,255,0.16) inset,
+    0 0 26px rgba(94,242,255,0.10),
+    0 12px 30px rgba(0,0,0,0.55);
+}
+
+body.cyborg .btn.primary{
+  background: rgba(94,242,255,0.14);
+  border-color: rgba(94,242,255,0.38);
+  box-shadow:
+    0 0 0 1px rgba(94,242,255,0.20) inset,
+    0 0 34px rgba(94,242,255,0.14),
+    0 14px 34px rgba(0,0,0,0.55);
+}
+
+body.cyborg .previewWrap{
+  background: rgba(0,0,0,0.22);
+  border-color: rgba(255,255,255,0.10);
+}
+
+body.cyborg .previewWrap::before{
+  border-color: rgba(94,242,255,0.20);
+  opacity: 0.55;
+}
+
+body.cyborg .toast{
+  background: rgba(0,0,0,0.55);
+  border-color: rgba(94,242,255,0.22);
+  color: rgba(245,248,255,0.86);
+  box-shadow: 0 0 22px rgba(94,242,255,0.10);
 }
