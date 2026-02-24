@@ -52,12 +52,17 @@
             <label for="attachment">Attachment</label>
             <select id="attachment">
               <option value="none" selected>None</option>
+              <option value="neural_link">Neural Link Port</option>
+              <option value="bio_sensor">Biofeedback Sensor Array</option>
+              <option value="env_sensor">Environmental Sensor Cluster</option>
+              <option value="power_core">Adaptive Power Core</option>
+              <option value="sleeve">Soft Sleeve</option>
               <option value="led_ring">LED Ring</option>
               <option value="carbon_guard">Carbon Guard</option>
               <option value="tool_mount">Tool Mount</option>
               <option value="armor_plate">Armor Plate</option>
-              <option value="sleeve">Soft Sleeve</option>
             </select>
+            <div id="attachmentHint" class="subhint"></div>
           </div>
 
           <div class="field">
@@ -124,12 +129,8 @@
           <input id="comfort" type="range" min="0" max="100" value="45" />
         </div>
 
-        <button id="spec" class="btn wide">Generate spec sheet</button>
+        <!-- <button id="spec" class="btn wide">Generate spec sheet</button> -->
 
-        <!-- <div class="specBox" id="specBox" aria-live="polite">
-          <div class="specTitle" id="specTitle">Your spec sheet will appear here ▢</div>
-          <div class="specBody" id="specBody"></div>
-        </div> -->
       </section>
 
       <section class="panel stage">

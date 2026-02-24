@@ -1,10 +1,10 @@
-/* Augment Studio — Cyborg Configurator (cleaned)
-   Expects module images at:
-   assets/modules/arm.png, arm-black.png, arm-blue.png, arm-pink.png
-   assets/modules/hand.png, hand-black.png, hand-blue.png, hand-pink.png
-   assets/modules/foot.png, foot-black.png, foot-blue.png, foot-pink.png
-   assets/modules/eye.png,  eye-black.png,  eye-blue.png,  eye-pink.png
-   (Silver uses the base filename without suffix)
+/* Augment Studio — Cyborg Configurator
+   Module images: assets/modules/{module}.png (silver)
+                  assets/modules/{module}-{colorway}.png (black/blue/pink)
+
+   Requires in index.html:
+   - <select id="attachment"> options matching ATTACHMENTS keys
+   - <div id="attachmentHint"></div>
 */
 
 const $ = (id) => document.getElementById(id);
@@ -13,6 +13,7 @@ const ui = {
   name: $("name"),
   module: $("module"),
   attachment: $("attachment"),
+  attachmentHint: $("attachmentHint"),
   colorway: $("colorway"),
   accentColor: $("accentColor"),
   uiStyle: $("uiStyle"),
@@ -27,9 +28,6 @@ const ui = {
   comfortLabel: $("comfortLabel"),
 
   specBtn: $("spec"),
-  specTitle: $("specTitle"),
-  specBody: $("specBody"),
-
   frame: $("frame"),
   toast: $("toast"),
   badgeName: $("badgeName"),
@@ -43,22 +41,248 @@ const ui = {
 const STORAGE_KEY = "augment_studio.v2";
 let state = loadState() ?? defaultState();
 
+/* =========================================================
+   Attachments (system logic)
+   ========================================================= */
+
+const ATTACHMENTS = {
+  none: {
+    label: "None",
+    allowed: ["arm", "hand", "leg", "foot", "eye", "spine"],
+    mods: { stability: 0, signal: 0, comfort: 0, thermal: 0, glow: 1 },
+    hint: "No attachment modifiers.",
+  },
+
+  // “system” attachments
+  neural_link: {
+    label: "Neural Link Port",
+    allowed: ["eye", "spine", "arm"],
+    mods: { stability: +10, signal: +12, comfort: -4, thermal: +2, glow: 1.15 },
+    hint: "+Stability, +Signal. Neural sync enabled.",
+  },
+
+  bio_sensor: {
+    label: "Biofeedback Sensor Array",
+    allowed: ["arm", "leg", "foot", "spine"],
+    mods: { stability: +6, signal: +8, comfort: +6, thermal: 0, glow: 1.10 },
+    hint: "+Comfort, +Signal. Biometrics feed available in Diagnostic.",
+  },
+
+  env_sensor: {
+    label: "Environmental Sensor Cluster",
+    allowed: ["arm", "hand", "spine", "eye"],
+    mods: { stability: +4, signal: +14, comfort: -2, thermal: 0, glow: 1.20 },
+    hint: "+Signal. Environmental telemetry visible in overlay.",
+  },
+
+  power_core: {
+    label: "Adaptive Power Core",
+    allowed: ["arm", "hand", "leg", "foot", "spine"],
+    mods: { stability: +8, signal: -4, comfort: +2, thermal: -6, glow: 1.05 },
+    hint: "+Stability. Thermal mitigation enabled (quieter signal).",
+  },
+
+  sleeve: {
+    label: "Soft Sleeve",
+    allowed: ["arm", "hand", "leg", "foot"],
+    mods: { stability: +4, signal: -6, comfort: +14, thermal: 0, glow: 0.85 },
+    hint: "+Comfort. Stealth profile (reduced glow).",
+  },
+
+  // legacy visuals (now with meaningful modifiers)
+  led_ring: {
+    label: "LED Ring",
+    allowed: ["arm", "hand", "eye"],
+    mods: { stability: -2, signal: +16, comfort: -2, thermal: +2, glow: 1.35 },
+    hint: "High visibility: +Signal. Slight stability tradeoff.",
+  },
+
+  carbon_guard: {
+    label: "Carbon Guard",
+    allowed: ["arm", "leg", "foot"],
+    mods: { stability: +14, signal: -2, comfort: -4, thermal: -2, glow: 0.95 },
+    hint: "Protective: +Stability. Slight comfort tradeoff.",
+  },
+
+  tool_mount: {
+    label: "Tool Mount",
+    allowed: ["arm", "hand"],
+    mods: { stability: +2, signal: 0, comfort: -10, thermal: +4, glow: 1.00 },
+    hint: "Utility mount: load bias (comfort tradeoff).",
+  },
+
+  armor_plate: {
+    label: "Armor Plate",
+    allowed: ["arm", "leg", "foot", "spine"],
+    mods: { stability: +10, signal: -2, comfort: -6, thermal: -3, glow: 0.95 },
+    hint: "Shielding: stability up. Thermal risk down.",
+  },
+};
+
+function clamp01(n) { return Math.max(0, Math.min(1, n)); }
+function clamp100(n) { return Math.max(0, Math.min(100, n)); }
+function pickOne(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function randInt(a, b) { return Math.floor(a + Math.random() * (b - a + 1)); }
+function cap(s) { return (s || "").replace(/\b\w/g, c => c.toUpperCase()); }
+
+function deriveState(s) {
+  const a = ATTACHMENTS[s.attachment] ?? ATTACHMENTS.none;
+  const m = a.mods || {};
+
+  const ds = { ...s };
+  ds.stability = clamp100(ds.stability + (m.stability ?? 0));
+  ds.signal = clamp100(ds.signal + (m.signal ?? 0));
+  ds.comfort = clamp100(ds.comfort + (m.comfort ?? 0));
+
+  ds._thermalAdj = m.thermal ?? 0;
+  ds._glowMult = m.glow ?? 1;
+
+  ds._attachmentLabel = a.label;
+  ds._attachmentHint = a.hint;
+
+  return ds;
+}
+
+function isAttachmentAllowed(module, attachmentKey) {
+  const a = ATTACHMENTS[attachmentKey] ?? ATTACHMENTS.none;
+  return a.allowed.includes(module);
+}
+
+function refreshAttachmentOptions() {
+  if (!ui.attachment) return;
+  const module = ui.module.value;
+
+  Array.from(ui.attachment.options).forEach(opt => {
+    const ok = isAttachmentAllowed(module, opt.value);
+    opt.disabled = !ok;
+    opt.hidden = !ok;
+  });
+
+  // snap invalid selection to none
+  if (!isAttachmentAllowed(module, ui.attachment.value)) {
+    ui.attachment.value = "none";
+    patchState({ attachment: "none" });
+  }
+
+  updateAttachmentHint();
+}
+
+function updateAttachmentHint() {
+  if (!ui.attachmentHint) return;
+
+  const a = ATTACHMENTS[ui.attachment.value] ?? ATTACHMENTS.none;
+  const m = a.mods || {};
+
+  const parts = [
+    m.stability ? `${m.stability > 0 ? "+" : ""}${m.stability} Stability` : null,
+    m.signal ? `${m.signal > 0 ? "+" : ""}${m.signal} Signal` : null,
+    m.comfort ? `${m.comfort > 0 ? "+" : ""}${m.comfort} Comfort` : null,
+  ].filter(Boolean);
+
+  ui.attachmentHint.textContent =
+    parts.length ? `${a.hint} (${parts.join(" • ")})` : a.hint;
+}
+
+/* =========================================================
+   Render scheduling
+   ========================================================= */
+
 let renderQueued = false;
+
+function requestRender() {
+  if (renderQueued) return;
+  renderQueued = true;
+  requestAnimationFrame(() => {
+    renderQueued = false;
+    render();
+  });
+}
+
+function patchState(patch) {
+  state = { ...state, ...patch };
+  requestRender();
+}
+
+/* =========================================================
+   Idle animation (single continuous loop — no jitter)
+   ========================================================= */
+
+let idleRunning = false;
 let idleRAF = 0;
-let idleToken = 0;
+let idleT = Math.random() * 1000;
+
+let idleSpeed = 1.0;
+let idleWobble = 3.0;
+let idleRotAmp = 0.5;
+
+function startIdleLoopIfNeeded() {
+  if (!ui._root) return;
+  if (idleRunning) return;
+
+  idleRunning = true;
+
+  const tick = () => {
+    idleT += 0.016 * idleSpeed;
+    const y = Math.sin(idleT) * idleWobble;
+    const r = Math.sin(idleT * 0.75) * idleRotAmp;
+
+    ui._root.style.transform =
+      `translateY(${y.toFixed(2)}px) rotate(${r.toFixed(3)}deg)`;
+
+    idleRAF = requestAnimationFrame(tick);
+  };
+
+  idleRAF = requestAnimationFrame(tick);
+}
+
+function updateIdleParams(ds) {
+  const over = clamp01(ds.stability / 100);
+  const sig = clamp01(ds.signal / 100);
+
+  // calmer baseline than before
+  idleSpeed = 0.55 + over * 1.1;
+  idleWobble = 2.2 + sig * 2.8;
+  idleRotAmp = 0.22 + over * 0.55;
+
+  startIdleLoopIfNeeded();
+}
+
+function pulse() {
+  if (!ui._root) return;
+  ui._root.animate(
+    [
+      { transform: ui._root.style.transform || "translateY(0)" },
+      { transform: "translateY(-6px) scale(1.04)" },
+      { transform: ui._root.style.transform || "translateY(0)" }
+    ],
+    { duration: 280, easing: "ease-out" }
+  );
+}
+
+/* =========================================================
+   Init + state
+   ========================================================= */
 
 init();
-
-/* ------------------------------ init */
 
 function init() {
   hydrateControls(state);
   mountLayersOnce();
+  refreshAttachmentOptions();
   requestRender();
 
   ui.name.addEventListener("input", () => patchState({ name: ui.name.value }));
-  ui.module.addEventListener("change", () => patchState({ module: ui.module.value }));
-  ui.attachment.addEventListener("change", () => patchState({ attachment: ui.attachment.value }));
+
+  ui.module.addEventListener("change", () => {
+    patchState({ module: ui.module.value });
+    refreshAttachmentOptions();
+  });
+
+  ui.attachment.addEventListener("change", () => {
+    patchState({ attachment: ui.attachment.value });
+    updateAttachmentHint();
+  });
+
   ui.colorway.addEventListener("change", () => patchState({ colorway: ui.colorway.value }));
   ui.accentColor.addEventListener("input", () => patchState({ accentColor: ui.accentColor.value }));
   ui.uiStyle.addEventListener("change", () => patchState({ uiStyle: ui.uiStyle.value }));
@@ -71,6 +295,7 @@ function init() {
   ui.randomize.addEventListener("click", () => {
     state = randomState();
     hydrateControls(state);
+    refreshAttachmentOptions();
     requestRender();
     toast("New configuration loaded.");
   });
@@ -81,9 +306,7 @@ function init() {
   });
 
   ui.specBtn.addEventListener("click", () => {
-    const spec = generateSpec(state);
-    ui.specTitle.textContent = spec.title;
-    ui.specBody.innerHTML = spec.html;
+    const spec = generateSpec(deriveState(state));
     toast(spec.note);
   });
 
@@ -91,18 +314,16 @@ function init() {
 
   ui.frame.addEventListener("click", () => {
     pulse();
-    toast(pickOne(reactions(state)));
+    toast(pickOne(reactions(deriveState(state))));
   });
 }
-
-/* ------------------------------ state */
 
 function defaultState() {
   return {
     name: "",
     module: "arm",
     attachment: "none",
-    colorway: "silver", // ✅ default
+    colorway: "silver",
     accentColor: "#3a7bd5",
     uiStyle: "reticle",
     finish: "ceramic",
@@ -125,23 +346,9 @@ function hydrateControls(s) {
   ui.comfort.value = String(s.comfort ?? 45);
 }
 
-function patchState(patch) {
-  state = { ...state, ...patch };
-  requestRender();
-}
-
-/* ------------------------------ render scheduling */
-
-function requestRender() {
-  if (renderQueued) return;
-  renderQueued = true;
-  requestAnimationFrame(() => {
-    renderQueued = false;
-    render();
-  });
-}
-
-/* ------------------------------ labels */
+/* =========================================================
+   Labels + tags
+   ========================================================= */
 
 function stabilityTag(v) {
   if (v < 20) return "Stabilized";
@@ -150,6 +357,7 @@ function stabilityTag(v) {
   if (v < 85) return "Boosted";
   return "Overclock";
 }
+
 function signalTag(v) {
   if (v < 20) return "Stealth";
   if (v < 45) return "Low signal";
@@ -157,6 +365,7 @@ function signalTag(v) {
   if (v < 85) return "Beacon";
   return "High signal";
 }
+
 function comfortTag(v) {
   if (v < 20) return "Comfort";
   if (v < 45) return "Gentle";
@@ -164,11 +373,14 @@ function comfortTag(v) {
   if (v < 85) return "Force";
   return "Max torque";
 }
+
 function modeBadge(s) {
   return `${stabilityTag(s.stability)} • ${signalTag(s.signal)} • ${comfortTag(s.comfort)}`;
 }
 
-/* ------------------------------ mount layers */
+/* =========================================================
+   Mount layers
+   ========================================================= */
 
 function mountLayersOnce() {
   ui.frame.innerHTML = `
@@ -195,36 +407,39 @@ function mountLayersOnce() {
   ui._moduleImg.onerror = () => {
     ui._moduleImg.removeAttribute("src");
     ui._moduleImg.style.opacity = "0";
-    toast("Module image not found. Check /assets/modules naming (e.g., arm-blue.png).");
+    toast("Module image not found. Check assets/modules naming.");
   };
 }
 
-/* ------------------------------ module image routing */
-
-function moduleAssetBase(module) {
-  return module;
-}
+/* =========================================================
+   Module image path
+   ========================================================= */
 
 function moduleAssetPath(module, colorway) {
-  const base = moduleAssetBase(module);
   const suffix = (colorway && colorway !== "silver") ? `-${colorway}` : "";
-  return `assets/modules/${base}${suffix}.png`;
+  return `assets/modules/${module}${suffix}.png`;
 }
 
-/* ------------------------------ render */
+/* =========================================================
+   Render
+   ========================================================= */
 
 function render() {
-  ui.stabilityLabel.textContent = stabilityTag(state.stability);
-  ui.signalLabel.textContent = signalTag(state.signal);
-  ui.comfortLabel.textContent = comfortTag(state.comfort);
+  const ds = deriveState(state);
 
-  ui.badgeName.textContent = (state.name || "Unnamed").trim() || "Unnamed";
-  ui.badgeMode.textContent = modeBadge(state);
+  ui.stabilityLabel.textContent = stabilityTag(ds.stability);
+  ui.signalLabel.textContent = signalTag(ds.signal);
+  ui.comfortLabel.textContent = comfortTag(ds.comfort);
 
-  const over = clamp01(state.stability / 100);
-  const sig = clamp01(state.signal / 100);
+  ui.badgeName.textContent = (ds.name || "Unnamed").trim() || "Unnamed";
+  ui.badgeMode.textContent = modeBadge(ds);
 
-  // ✅ module image (now uses colorway variants)
+  updateAttachmentHint();
+
+  const over = clamp01(ds.stability / 100);
+  const sig = clamp01(ds.signal / 100);
+
+  // module image (based on base selections)
   const src = moduleAssetPath(state.module, state.colorway);
   if (ui._moduleImg.getAttribute("src") !== src) {
     ui._moduleImg.style.opacity = "1";
@@ -234,38 +449,44 @@ function render() {
   // finish filter
   ui._moduleImg.style.filter = finishFilter(state.finish);
 
-  // ✅ disable tint-mix so your PNGs show true color
+  // keep tint off so PNG colorways show true
   ui._moduleTint.style.opacity = "0";
   ui._moduleTint.style.backgroundColor = "transparent";
 
-  // glow
-  const glowOp = (0.08 + sig * 0.52).toFixed(2);
+  // glow (affected by attachment)
+  const glowOp = ((0.08 + sig * 0.52) * (ds._glowMult || 1)).toFixed(2);
   ui._backGlow.style.background =
     `radial-gradient(ellipse 68% 62% at 50% 52%, ${state.accentColor}, transparent 72%)`;
   ui._backGlow.style.opacity = glowOp;
 
-  // overlays
-  ui._attachSvg.innerHTML = attachmentOverlay(state);
-  ui._hudSvg.innerHTML = hudOverlay(state);
+  // overlays (use derived state so HUD matches modifiers)
+  ui._attachSvg.innerHTML = attachmentOverlay(ds);
+  ui._hudSvg.innerHTML = hudOverlay(ds);
 
-  // alert
+  // alert (use stability + thermal adj)
   if (over > 0.8) {
+    const intensity = (0.2 + (over - 0.8) * 1.5).toFixed(2);
     ui._alertLayer.style.boxShadow =
-      `inset 0 0 60px rgba(234,87,80,${(0.2 + (over - 0.8) * 1.5).toFixed(2)})`;
+      `inset 0 0 60px rgba(234,87,80,${intensity})`;
+
+    const mitigated = (ds._thermalAdj || 0) < 0;
     ui._alertLayer.innerHTML = `
       <div style="position:absolute;bottom:18px;left:18px;color:#ea5750;font-weight:700;font-size:11px;
                   letter-spacing:0.08em;text-shadow:0 0 8px rgba(234,87,80,0.8);">
-        ⚠ THERMAL LIMIT EXCEEDED
+        ⚠ THERMAL LIMIT ${mitigated ? "MITIGATED" : "EXCEEDED"}
       </div>`;
   } else {
     ui._alertLayer.style.boxShadow = "none";
     ui._alertLayer.innerHTML = "";
   }
 
-  startIdle();
+  // stable idle update (no restart jitter)
+  updateIdleParams(ds);
 }
 
-/* ------------------------------ finish filters */
+/* =========================================================
+   Finish filters
+   ========================================================= */
 
 function finishFilter(finish) {
   switch (finish) {
@@ -276,7 +497,10 @@ function finishFilter(finish) {
   }
 }
 
-/* ------------------------------ attachment SVG */
+/* =========================================================
+   Attachment SVG (legacy visuals preserved)
+   New attachments can be visual-only for now (returns "")
+   ========================================================= */
 
 function attachmentOverlay(s) {
   const a = s.accentColor;
@@ -332,6 +556,13 @@ function attachmentOverlay(s) {
           <line x1="355" y1="155" x2="355" y2="385" stroke="${a}" stroke-width="2.5" stroke-dasharray="5 7"/>
         </g>`;
 
+    // new “system” attachments: visuals optional for now
+    case "neural_link":
+    case "bio_sensor":
+    case "env_sensor":
+    case "power_core":
+      return "";
+
     default:
       return "";
   }
@@ -361,7 +592,9 @@ function hexPlate(cx, cy, color) {
     stroke-width="1.8" stroke-linejoin="round"/>`;
 }
 
-/* ------------------------------ HUD SVG (kept) */
+/* =========================================================
+   HUD SVG
+   ========================================================= */
 
 function hudOverlay(s) {
   const accent = s.accentColor;
@@ -389,15 +622,17 @@ function hudOverlay(s) {
       <g opacity="${op}">
         <path d="M84,200 L84,180 L104,180" fill="none" stroke="${accent}" stroke-width="2"/>
         <path d="M436,200 L436,180 L416,180" fill="none" stroke="${accent}" stroke-width="2"/>
-        <path d="M84,340 L84,360 L104,360"  fill="none" stroke="${accent}" stroke-width="2"/>
+        <path d="M84,340 L84,360 L104,360" fill="none" stroke="${accent}" stroke-width="2"/>
         <path d="M436,340 L436,360 L416,360" fill="none" stroke="${accent}" stroke-width="2"/>
       </g>`);
   }
 
   if (s.uiStyle === "diagnostic") {
-    const thermal = Math.round(34 + over * 26);
+    // base diagnostic metrics (slightly influenced by attachment thermal adj)
+    const thermal = Math.round(34 + over * 26 + (s._thermalAdj || 0));
     const torque = Math.round(60 + force * 40);
     const battery = Math.round(92 - over * 22 - signal * 10);
+
     parts.push(`
       <g opacity="${(+op * 1.3).toFixed(2)}">
         <rect x="86" y="366" width="148" height="58" rx="10" fill="rgba(0,0,0,0.45)" stroke="${accent}" stroke-width="1" opacity="0.80"/>
@@ -411,6 +646,47 @@ function hudOverlay(s) {
         <rect x="378" y="366" width="100" height="58" rx="10" fill="rgba(0,0,0,0.45)" stroke="${accent}" stroke-width="1" opacity="0.80"/>
         <text x="392" y="390" font-size="9" fill="rgba(255,255,255,0.55)" letter-spacing="1">BATTERY</text>
         <text x="392" y="412" font-size="14" font-weight="bold" fill="${accent}">${battery}%</text>
+      </g>`);
+  }
+
+  // small “system” extra readouts
+  if (s.uiStyle === "diagnostic" && s.attachment === "bio_sensor") {
+    const hr = Math.round(58 + signal * 44);
+    const spo2 = Math.round(94 + (1 - over) * 5);
+    const stress = Math.round(14 + over * 62);
+
+    parts.push(`
+      <g opacity="${(+op * 1.1).toFixed(2)}">
+        <rect x="86" y="306" width="192" height="44" rx="10" fill="rgba(0,0,0,0.40)" stroke="${accent}" stroke-width="1" opacity="0.78"/>
+        <text x="100" y="332" font-size="10" fill="rgba(255,255,255,0.62)" letter-spacing="1">BIO</text>
+        <text x="140" y="332" font-size="10" fill="${accent}" font-weight="bold">${hr} BPM</text>
+        <text x="210" y="332" font-size="10" fill="rgba(255,255,255,0.62)">SpO₂</text>
+        <text x="250" y="332" font-size="10" fill="${accent}" font-weight="bold">${spo2}%</text>
+        <text x="100" y="346" font-size="9" fill="rgba(255,255,255,0.52)">Stress idx</text>
+        <text x="160" y="346" font-size="9" fill="${accent}" font-weight="bold">${stress}</text>
+      </g>`);
+  }
+
+  if (s.uiStyle !== "minimal" && s.attachment === "env_sensor") {
+    const aqi = Math.round(18 + signal * 120);
+    const uv = Math.round(1 + signal * 9);
+    parts.push(`
+      <g opacity="${(+op * 0.95).toFixed(2)}">
+        <rect x="318" y="92" width="132" height="44" rx="10" fill="rgba(0,0,0,0.35)" stroke="${accent}" stroke-width="1" opacity="0.70"/>
+        <text x="332" y="116" font-size="10" fill="rgba(255,255,255,0.62)" letter-spacing="1">ENV</text>
+        <text x="372" y="116" font-size="10" fill="${accent}" font-weight="bold">AQI ${aqi}</text>
+        <text x="332" y="132" font-size="9" fill="rgba(255,255,255,0.52)">UV</text>
+        <text x="354" y="132" font-size="9" fill="${accent}" font-weight="bold">${uv}</text>
+      </g>`);
+  }
+
+  if (s.uiStyle !== "minimal" && s.attachment === "neural_link") {
+    const sync = Math.round(68 + signal * 30);
+    parts.push(`
+      <g opacity="${(+op * 0.95).toFixed(2)}">
+        <rect x="86" y="92" width="154" height="36" rx="10" fill="rgba(0,0,0,0.35)" stroke="${accent}" stroke-width="1" opacity="0.70"/>
+        <text x="100" y="115" font-size="10" fill="rgba(255,255,255,0.62)" letter-spacing="1">SYNC</text>
+        <text x="146" y="115" font-size="10" fill="${accent}" font-weight="bold">${sync}%</text>
       </g>`);
   }
 
@@ -445,7 +721,7 @@ function waveformOverlay(accent, opacity, over, signal) {
       fill="none" stroke="${accent}" stroke-width="2.5" stroke-linecap="round" opacity="${opacity}"/>`);
   }
 
-  lines.push(`<line x1="${cx - w/2}" y1="${cy}" x2="${cx + w/2}" y2="${cy}"
+  lines.push(`<line x1="${cx - w / 2}" y1="${cy}" x2="${cx + w / 2}" y2="${cy}"
     stroke="${accent}" stroke-width="1" opacity="${(+opacity * 0.4).toFixed(2)}" stroke-dasharray="4 6"/>`);
 
   return `<g>${lines.join("")}</g>`;
@@ -459,60 +735,23 @@ function glitchLines(over) {
     const y = 110 + Math.random() * 320;
     const w = 16 + Math.random() * 54;
     const op = (0.06 + (over - 0.55) * 0.50).toFixed(2);
-    lines.push(`<line x1="${x.toFixed(0)}" y1="${y.toFixed(0)}" x2="${(x+w).toFixed(0)}" y2="${y.toFixed(0)}"
+    lines.push(`<line x1="${x.toFixed(0)}" y1="${y.toFixed(0)}" x2="${(x + w).toFixed(0)}" y2="${y.toFixed(0)}"
       stroke="rgba(255,255,255,0.70)" stroke-width="1.5" opacity="${op}"/>`);
   }
   return `<g>${lines.join("")}</g>`;
 }
 
-/* ------------------------------ idle */
-
-function startIdle() {
-  if (!ui._root) return;
-
-  idleToken++;
-  const token = idleToken;
-  cancelAnimationFrame(idleRAF);
-
-  const over = clamp01(state.stability / 100);
-  const sig = clamp01(state.signal / 100);
-  const speed = 0.55 + over * 1.4;
-  const wobble = 3.0 + sig * 4.0;
-
-  let t = Math.random() * 1000;
-
-  const tick = () => {
-    if (token !== idleToken) return;
-    t += 0.016 * speed;
-    const y = Math.sin(t) * wobble;
-    const r = Math.sin(t * 0.75) * (0.5 + over * 0.8);
-    ui._root.style.transform = `translateY(${y.toFixed(2)}px) rotate(${r.toFixed(3)}deg)`;
-    idleRAF = requestAnimationFrame(tick);
-  };
-
-  idleRAF = requestAnimationFrame(tick);
-}
-
-function pulse() {
-  if (!ui._root) return;
-  ui._root.animate(
-    [
-      { transform: ui._root.style.transform || "translateY(0)" },
-      { transform: "translateY(-6px) scale(1.04)" },
-      { transform: ui._root.style.transform || "translateY(0)" }
-    ],
-    { duration: 280, easing: "ease-out" }
-  );
-}
-
-/* ------------------------------ spec + export + storage */
+/* =========================================================
+   Spec + storage + export
+   ========================================================= */
 
 function generateSpec(s) {
   const name = (s.name || "Unnamed").trim() || "Unnamed";
   const over = clamp01(s.stability / 100);
   const signal = clamp01(s.signal / 100);
   const force = clamp01(s.comfort / 100);
-  const thermal = Math.round(34 + over * 26);
+
+  const thermal = Math.round(34 + over * 26 + (s._thermalAdj || 0));
   const battery = Math.round(92 - over * 24 - signal * 10);
   const torque = Math.round(60 + force * 40);
 
@@ -520,21 +759,19 @@ function generateSpec(s) {
     ? "Calibration recommends cooldown after high-load use."
     : "Calibration within recommended limits.";
 
-  const items = [
-    `Module: <strong>${cap(s.module)}</strong>`,
-    `Colorway: <strong>${cap(s.colorway)}</strong>`,
-    `Finish: <strong>${cap(s.finish)}</strong>`,
-    `Attachment: <strong>${cap(s.attachment.replace(/_/g, " "))}</strong>`,
-    `Tuning: <strong>${modeBadge(s)}</strong>`,
-    `Thermal: <strong>${thermal}°C</strong>`,
-    `Torque: <strong>${torque}%</strong>`,
-    `Battery projection: <strong>${battery}%</strong>`,
-  ];
-
   return {
     title: `${name} — Spec Sheet`,
     note,
-    html: `<ul>${items.map(x => `<li>${x}</li>`).join("")}</ul>`
+    html: `<ul>
+      <li>Module: <strong>${cap(s.module)}</strong></li>
+      <li>Colorway: <strong>${cap(s.colorway)}</strong></li>
+      <li>Finish: <strong>${cap(s.finish)}</strong></li>
+      <li>Attachment: <strong>${cap((s._attachmentLabel || s.attachment).replace(/_/g," "))}</strong></li>
+      <li>Tuning: <strong>${modeBadge(s)}</strong></li>
+      <li>Thermal: <strong>${thermal}°C</strong></li>
+      <li>Torque: <strong>${torque}%</strong></li>
+      <li>Battery projection: <strong>${battery}%</strong></li>
+    </ul>`
   };
 }
 
@@ -573,6 +810,7 @@ async function exportPNG() {
 function saveState(s) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
 }
+
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -582,20 +820,27 @@ function loadState() {
   }
 }
 
-/* ------------------------------ random + microcopy */
+/* =========================================================
+   Random + reactions + toast
+   ========================================================= */
 
 function randomState() {
-  const accents = ["#3a7bd5","#1fb6ff","#2dd4bf","#7c3aed","#ef4444","#0ea5e9","#f59e0b"];
-  const modules = ["arm","hand","leg","eye","spine"];
-  const attachments = ["none","led_ring","carbon_guard","tool_mount","armor_plate","sleeve"];
-  const styles = ["reticle","diagnostic","waveform","minimal"];
-  const finishes = ["ceramic","titanium","carbon","polymer"];
-  const colorways = ["silver","black","blue","pink"];
+  const accents = ["#3a7bd5", "#1fb6ff", "#2dd4bf", "#7c3aed", "#ef4444", "#0ea5e9", "#f59e0b"];
+  const modules = ["arm", "hand", "leg", "foot", "eye", "spine"];
+  const attachments = Object.keys(ATTACHMENTS);
+  const styles = ["reticle", "diagnostic", "waveform", "minimal"];
+  const finishes = ["ceramic", "titanium", "carbon", "polymer"];
+  const colorways = ["silver", "black", "blue", "pink"];
+
+  const module = pickOne(modules);
+  // pick a valid attachment for that module
+  const validAttachments = attachments.filter(a => isAttachmentAllowed(module, a));
+  const attachment = pickOne(validAttachments.length ? validAttachments : ["none"]);
 
   return {
     ...defaultState(),
-    module: pickOne(modules),
-    attachment: pickOne(attachments),
+    module,
+    attachment,
     colorway: pickOne(colorways),
     accentColor: pickOne(accents),
     uiStyle: pickOne(styles),
@@ -610,8 +855,8 @@ function reactions(s) {
   const over = clamp01(s.stability / 100);
   const signal = clamp01(s.signal / 100);
   const force = clamp01(s.comfort / 100);
-  const out = [];
 
+  const out = [];
   if (over > 0.80) out.push("Overclock engaged. Watch thermal drift.");
   else if (over < 0.30) out.push("Stabilizers active. Smooth response curve.");
 
@@ -621,11 +866,10 @@ function reactions(s) {
   if (force > 0.75) out.push("Torque bias high. Recommend soft-tissue checks.");
   else if (force < 0.35) out.push("Comfort bias. Adaptive damping enabled.");
 
+  out.push(`Attachment: ${(s._attachmentLabel || s.attachment).replace(/_/g," ")}`);
   out.push("Calibration snapshot recorded.");
   return out;
 }
-
-/* ------------------------------ toast */
 
 function toast(msg) {
   ui.toast.textContent = msg;
@@ -643,12 +887,9 @@ function toast(msg) {
   }, 2000);
 }
 
-/* ------------------------------ utils */
-
-function clamp01(n) { return Math.max(0, Math.min(1, n)); }
-function pickOne(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-function randInt(a,b) { return Math.floor(a + Math.random() * (b - a + 1)); }
-function cap(s) { return (s || "").replace(/\b\w/g, c => c.toUpperCase()); }
+/* =========================================================
+   Color utils
+   ========================================================= */
 
 function hexToRgb(hex) {
   const h = hex.replace("#", "").trim();
