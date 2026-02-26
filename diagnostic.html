@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>A.A.S — Diagnostic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="bg-grid" aria-hidden="true"></div>
+
+<header class="topbar">
+  <div class="topbar-logo"><div class="mark"></div>A.A.S</div>
+  <div class="topbar-status">
+    <span class="status-dot"></span>DIAGNOSTIC MODE
+    <span style="color:var(--dim)">|</span>
+    <span id="sysTime">--:--:--</span>
+  </div>
+  <nav class="topbar-nav">
+    <a href="index.html"      class="nav-btn">Overview</a>
+    <a href="diagnostic.html" class="nav-btn active">Diagnostic</a>
+    <a href="results.html"    class="nav-btn">Results</a>
+  </nav>
+</header>
+
+<main class="page-section">
+  <div class="section-label">02 — Input Diagnostic</div>
+
+  <div class="diag-grid">
+
+    <!-- INPUT FORM -->
+    <div class="input-panel">
+
+      <div class="input-group">
+        <div class="group-title">01 — Sleep &amp; Recovery</div>
+        <div class="form-grid">
+          <div class="field">
+            <div class="slider-row">
+              <label for="sleepHours">Sleep Hours / Night</label>
+              <span class="slider-val" id="sleepHoursVal">7h</span>
+            </div>
+            <input type="range" id="sleepHours" min="3" max="10" step="0.5" value="7">
+          </div>
+          <div class="field">
+            <label for="sleepQuality">Sleep Quality</label>
+            <select id="sleepQuality">
+              <option value="poor">Poor — Fragmented</option>
+              <option value="fair">Fair — Average</option>
+              <option value="good" selected>Good — Consistent</option>
+              <option value="excellent">Excellent — Deep</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="input-group">
+        <div class="group-title">02 — Behavioral Profile</div>
+        <div class="form-grid">
+          <div class="field">
+            <label for="stressLevel">Stress Level</label>
+            <select id="stressLevel">
+              <option value="low">Low — Minimal</option>
+              <option value="medium" selected>Medium — Manageable</option>
+              <option value="high">High — Persistent</option>
+              <option value="extreme">Extreme — Chronic</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="workType">Work Type</label>
+            <select id="workType">
+              <option value="creative">Creative / Design</option>
+              <option value="analytical" selected>Analytical / Technical</option>
+              <option value="physical">Physical / Manual</option>
+              <option value="social">Social / Leadership</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="activityLevel">Activity Level</label>
+            <select id="activityLevel">
+              <option value="sedentary">Sedentary</option>
+              <option value="moderate" selected>Moderate</option>
+              <option value="active">Active</option>
+              <option value="athlete">Athlete</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="injuryHistory">Injury History</label>
+            <select id="injuryHistory">
+              <option value="none" selected>None</option>
+              <option value="upper">Upper Body</option>
+              <option value="lower">Lower Body</option>
+              <option value="spine">Spinal</option>
+              <option value="chronic">Chronic / Multiple</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="input-group">
+        <div class="group-title">03 — Environment</div>
+        <div class="form-grid">
+          <div class="field">
+            <label for="climate">Climate</label>
+            <select id="climate">
+              <option value="cold">Cold / Arctic</option>
+              <option value="temperate" selected>Temperate</option>
+              <option value="hot">Hot / Arid</option>
+              <option value="humid">Hot &amp; Humid</option>
+              <option value="variable">Variable / Mixed</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="environment">Primary Environment</label>
+            <select id="environment">
+              <option value="urban" selected>Urban / Indoor</option>
+              <option value="field">Field / Outdoor</option>
+              <option value="industrial">Industrial</option>
+              <option value="remote">Remote / Wilderness</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="input-group">
+        <div class="group-title">04 — Primary Goals</div>
+        <div class="goal-grid" id="goalGrid">
+          <div class="goal-chip active" data-goal="longevity"><span class="chip-icon">♾</span>Longevity</div>
+          <div class="goal-chip" data-goal="strength"><span class="chip-icon">⚡</span>Strength</div>
+          <div class="goal-chip" data-goal="focus"><span class="chip-icon">◎</span>Focus</div>
+          <div class="goal-chip" data-goal="aesthetics"><span class="chip-icon">✦</span>Aesthetics</div>
+          <div class="goal-chip" data-goal="recovery"><span class="chip-icon">↺</span>Recovery</div>
+          <div class="goal-chip" data-goal="endurance"><span class="chip-icon">∞</span>Endurance</div>
+          <div class="goal-chip" data-goal="stealth"><span class="chip-icon">◈</span>Stealth</div>
+          <div class="goal-chip" data-goal="sensory"><span class="chip-icon">◉</span>Sensory+</div>
+        </div>
+      </div>
+
+      <button class="run-btn" id="runDiagBtn">
+        <span>RUN DIAGNOSTIC — GENERATE AUGMENTATION PROFILE</span>
+      </button>
+    </div>
+
+    <!-- LIVE SIDE PANEL -->
+    <div class="live-panel">
+
+      <div class="live-card">
+        <div class="live-card-title">Live Input State</div>
+        <div class="live-item"><span class="k">Sleep</span><span class="v hi" id="lv-sleep">7h / Good</span></div>
+        <div class="live-item"><span class="k">Stress</span><span class="v" id="lv-stress">Medium</span></div>
+        <div class="live-item"><span class="k">Work</span><span class="v" id="lv-work">Analytical</span></div>
+        <div class="live-item"><span class="k">Activity</span><span class="v" id="lv-activity">Moderate</span></div>
+        <div class="live-item"><span class="k">Injury</span><span class="v" id="lv-injury">None</span></div>
+        <div class="live-item"><span class="k">Climate</span><span class="v" id="lv-climate">Temperate</span></div>
+        <div class="live-item"><span class="k">Environment</span><span class="v" id="lv-env">Urban</span></div>
+        <div class="live-item"><span class="k">Goals</span><span class="v hi" id="lv-goals">Longevity</span></div>
+        <div class="live-item"><span class="k">Risk Index</span><span class="v" id="lv-risk">—</span></div>
+        <div class="live-item"><span class="k">Profile Score</span><span class="v hi" id="lv-score">—</span></div>
+      </div>
+
+      <div class="live-card">
+        <div class="live-card-title">Predicted Augmentation</div>
+        <div class="live-item"><span class="k">Body Part</span><span class="v hi" id="lv-part">—</span></div>
+        <div class="live-item"><span class="k">Armor Level</span><span class="v" id="lv-armor">—</span></div>
+        <div class="live-item"><span class="k">Neural Density</span><span class="v" id="lv-neural">—</span></div>
+        <div class="live-item"><span class="k">Thermal Mode</span><span class="v" id="lv-thermal">—</span></div>
+        <div class="live-item"><span class="k">Panel Style</span><span class="v" id="lv-panel">—</span></div>
+        <div class="live-item">
+          <span class="k">Accent</span>
+          <span class="v" style="display:flex;align-items:center;gap:6px">
+            <span id="lv-accent-swatch" style="width:10px;height:10px;border-radius:50%;display:inline-block;flex-shrink:0"></span>
+            <span id="lv-accent-val">—</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="processing-state" id="processingState">
+        <div class="live-card-title" style="margin:0 0 8px">ANALYZING PROFILE…</div>
+        <div class="proc-row" id="prow-0"><div class="proc-indicator"></div>Scanning behavioral patterns</div>
+        <div class="proc-row" id="prow-1"><div class="proc-indicator"></div>Evaluating injury profile</div>
+        <div class="proc-row" id="prow-2"><div class="proc-indicator"></div>Simulating structural reinforcement</div>
+        <div class="proc-row" id="prow-3"><div class="proc-indicator"></div>Calibrating neural interface</div>
+        <div class="proc-row" id="prow-4"><div class="proc-indicator"></div>Optimizing material selection</div>
+        <div class="proc-row" id="prow-5"><div class="proc-indicator"></div>Rendering augmentation schema</div>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<script src="engine.js"></script>
+<script src="diagnostic.js"></script>
+</body>
+</html>

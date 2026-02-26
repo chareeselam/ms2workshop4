@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>A.A.S — Results</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="bg-grid" aria-hidden="true"></div>
+
+<header class="topbar">
+  <div class="topbar-logo"><div class="mark"></div>A.A.S</div>
+  <div class="topbar-status">
+    <span class="status-dot"></span>RESULTS MODE
+    <span style="color:var(--dim)">|</span>
+    <span id="sysTime">--:--:--</span>
+  </div>
+  <nav class="topbar-nav">
+    <a href="index.html"      class="nav-btn">Overview</a>
+    <a href="diagnostic.html" class="nav-btn">Diagnostic</a>
+    <a href="results.html"    class="nav-btn active">Results</a>
+  </nav>
+</header>
+
+<!-- EMPTY STATE -->
+<div id="emptyState" class="empty-state">
+  <div class="empty-icon">◎</div>
+  <div class="empty-title">No Profile Generated</div>
+  <div class="empty-desc">Run the diagnostic first to generate your augmentation configuration. Results will appear here automatically.</div>
+  <a href="diagnostic.html" class="btn-primary" style="text-decoration:none; margin-top:8px">
+    <span>▶</span> Go to Diagnostic
+  </a>
+</div>
+
+<!-- RESULTS -->
+<main id="resultsMain" class="page-section" style="display:none">
+
+  <!-- Page header -->
+  <div class="results-page-header">
+    <div>
+      <div class="section-label" style="margin-bottom:12px">03 — Augmentation Profile</div>
+      <div class="results-title">
+        Configuration: <span id="configName" style="color:var(--cyan)">—</span>
+      </div>
+      <div id="runTimestamp" style="font-size:10px;color:var(--dim);margin-top:6px;letter-spacing:0.08em"></div>
+    </div>
+    <div class="results-header-actions">
+      <span class="badge hi" id="resultBadge1">—</span>
+      <span class="badge"    id="resultBadge2">—</span>
+      <a href="diagnostic.html" class="nav-btn" style="text-decoration:none">↺ Re-run</a>
+    </div>
+  </div>
+
+  <!-- Main grid: SVG preview + analysis -->
+  <div class="results-grid" style="margin-bottom:40px">
+
+    <div class="preview-panel">
+      <div class="preview-frame" id="previewFrame">
+        <div class="preview-corner tl"></div>
+        <div class="preview-corner tr"></div>
+        <div class="preview-corner bl"></div>
+        <div class="preview-corner br"></div>
+        <div class="preview-svg-wrap" id="svgWrap"></div>
+      </div>
+      <div class="stats-row">
+        <div class="stat-item">
+          <div class="s-label">Neural Latency</div>
+          <div class="s-val pos" id="stat-neural">—</div>
+          <div class="stat-bar"><div class="stat-bar-fill green" id="bar-neural" style="width:0%"></div></div>
+        </div>
+        <div class="stat-item">
+          <div class="s-label">Structural Stability</div>
+          <div class="s-val" id="stat-stab">—</div>
+          <div class="stat-bar"><div class="stat-bar-fill" id="bar-stab" style="width:0%"></div></div>
+        </div>
+        <div class="stat-item">
+          <div class="s-label">Thermal Efficiency</div>
+          <div class="s-val" id="stat-thermal">—</div>
+          <div class="stat-bar"><div class="stat-bar-fill" id="bar-thermal" style="width:0%"></div></div>
+        </div>
+        <div class="stat-item">
+          <div class="s-label">Augment Score</div>
+          <div class="s-val" id="stat-score">—</div>
+          <div class="stat-bar"><div class="stat-bar-fill" id="bar-score" style="width:0%"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="analysis-panel">
+      <div class="config-card">
+        <div class="config-card-title">Selected Modules</div>
+        <div id="modulesBreakdown"></div>
+      </div>
+      <div class="reasoning-card">
+        <div class="reasoning-title">AI Reasoning Log</div>
+        <div id="reasoningLog"></div>
+      </div>
+      <div class="config-card">
+        <div class="config-card-title">Input Profile</div>
+        <div id="inputSummaryContent"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Override mode -->
+  <div class="section-label" style="margin-bottom:20px">04 — Override Mode</div>
+  <div class="live-card" style="margin-bottom:20px">
+    <div class="live-card-title">Manual Module Overrides — toggle any module to recalculate metrics live</div>
+    <div class="override-grid" id="overrideGrid"></div>
+  </div>
+  <div class="stats-row" style="max-width:600px;padding-bottom:80px">
+    <div class="stat-item">
+      <div class="s-label">Override Score</div>
+      <div class="s-val" id="ov-score">—</div>
+      <div class="stat-bar"><div class="stat-bar-fill" id="ov-bar-score" style="width:0%"></div></div>
+    </div>
+    <div class="stat-item">
+      <div class="s-label">Stability Delta</div>
+      <div class="s-val" id="ov-stab">—</div>
+      <div class="stat-bar"><div class="stat-bar-fill" id="ov-bar-stab" style="width:0%"></div></div>
+    </div>
+  </div>
+
+</main>
+
+<script src="engine.js"></script>
+<script src="results.js"></script>
+</body>
+</html>
