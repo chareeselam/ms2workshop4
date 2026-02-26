@@ -1,0 +1,1149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>A.A.S — Case Studies</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<style>
+/* ═══════════════════════════════════════════════
+   CASE STUDIES PAGE STYLES
+═══════════════════════════════════════════════ */
+
+.cs-hero {
+  min-height: 52vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 80px max(32px,7vw) 64px;
+  position: relative;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.cs-hero-label {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--dim);
+  text-transform: uppercase;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cs-hero-label::before {
+  content: "";
+  width: 28px; height: 1px;
+  background: var(--cyan);
+  box-shadow: 0 0 6px var(--cyan);
+}
+
+.cs-hero-h1 {
+  font-family: var(--font-display);
+  font-size: clamp(36px, 5.5vw, 72px);
+  font-weight: 800;
+  line-height: 1.0;
+  letter-spacing: -0.03em;
+  color: var(--text);
+  max-width: 700px;
+  margin-bottom: 20px;
+}
+.cs-hero-h1 em {
+  font-style: normal;
+  color: transparent;
+  background: linear-gradient(90deg, var(--cyan), rgba(61,240,255,0.35));
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+.cs-hero-sub {
+  font-size: 13px;
+  color: var(--muted);
+  max-width: 520px;
+  line-height: 1.85;
+  margin-bottom: 36px;
+}
+
+.cs-stats-bar {
+  display: flex;
+  gap: 36px;
+  flex-wrap: wrap;
+}
+.cs-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cs-stat .cs-n {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--cyan);
+  line-height: 1;
+}
+.cs-stat .cs-l {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--dim);
+  text-transform: uppercase;
+}
+
+/* ── Filter bar ── */
+.cs-filter-bar {
+  padding: 0 max(32px,7vw);
+  margin-bottom: 48px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+}
+.cs-filter {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 999px;
+  padding: 7px 18px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: all 150ms ease;
+}
+.cs-filter:hover { border-color: var(--border-hi); color: var(--text); }
+.cs-filter.active {
+  border-color: var(--cyan-glow);
+  color: var(--cyan);
+  background: var(--cyan-dim);
+}
+.cs-filter-sep {
+  width: 1px; height: 20px;
+  background: var(--border);
+  margin: 0 6px;
+}
+
+/* ── Case study grid ── */
+.cs-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2px;
+  padding: 0 max(32px,7vw);
+  margin-bottom: 2px;
+  position: relative;
+  z-index: 1;
+}
+@media (max-width: 900px) { .cs-grid { grid-template-columns: 1fr; } }
+
+/* Full-width featured card */
+.cs-grid.featured {
+  grid-template-columns: 1fr;
+  margin-bottom: 2px;
+}
+
+/* ── Case study card ── */
+.cs-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  padding: 36px;
+  cursor: pointer;
+  transition: border-color 220ms ease, background 220ms ease;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+.cs-card:hover { border-color: var(--border-hi); }
+.cs-card.featured-card { flex-direction: row; gap: 48px; align-items: flex-start; }
+@media (max-width: 700px) { .cs-card.featured-card { flex-direction: column; gap: 32px; } }
+
+/* Accent stripe on left */
+.cs-card::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 2px;
+  background: var(--card-accent, var(--cyan));
+  box-shadow: 0 0 12px var(--card-accent, var(--cyan));
+  opacity: 0.6;
+}
+
+/* Hover glow from accent */
+.cs-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse 60% 40% at 20% 50%, var(--card-accent-dim, var(--cyan-dim)) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 300ms ease;
+  pointer-events: none;
+}
+.cs-card:hover::after { opacity: 1; }
+
+/* ── Avatar SVG container ── */
+.cs-avatar {
+  flex-shrink: 0;
+}
+.cs-avatar-wrap {
+  width: 160px;
+  height: 160px;
+  border-radius: var(--r);
+  background: rgba(0,0,0,0.35);
+  border: 1px solid var(--border);
+  display: grid;
+  place-items: center;
+  position: relative;
+  overflow: hidden;
+}
+.cs-card.featured-card .cs-avatar-wrap {
+  width: 220px;
+  height: 220px;
+}
+.cs-avatar-wrap svg {
+  width: 78%; height: 78%;
+  overflow: visible;
+  animation: float-idle 5s ease-in-out infinite;
+}
+/* corner brackets */
+.cs-avatar-wrap::before, .cs-avatar-wrap::after {
+  content: "";
+  position: absolute;
+  width: 14px; height: 14px;
+  border-color: var(--card-accent, var(--cyan));
+  border-style: solid;
+  opacity: 0.6;
+}
+.cs-avatar-wrap::before { top: 8px; left: 8px; border-width: 1.5px 0 0 1.5px; }
+.cs-avatar-wrap::after  { bottom: 8px; right: 8px; border-width: 0 1.5px 1.5px 0; }
+
+/* ── Card body ── */
+.cs-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0; }
+
+.cs-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.cs-build-id {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--card-accent, var(--cyan));
+  background: var(--card-accent-dim, var(--cyan-dim));
+  border: 1px solid var(--card-accent-glow, var(--cyan-glow));
+  border-radius: 4px;
+  padding: 3px 9px;
+}
+.cs-tag {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: var(--dim);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 3px 8px;
+  text-transform: uppercase;
+}
+
+.cs-name {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text);
+  line-height: 1.15;
+  margin-bottom: 6px;
+}
+.cs-card.featured-card .cs-name { font-size: 28px; }
+
+.cs-role {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 20px;
+  letter-spacing: 0.04em;
+}
+
+.cs-quote {
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.8;
+  padding-left: 14px;
+  border-left: 2px solid var(--card-accent, var(--cyan));
+  margin-bottom: 22px;
+  opacity: 0.85;
+  font-style: italic;
+}
+
+.cs-narrative {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.85;
+  margin-bottom: 24px;
+}
+
+/* ── Before/After stats ── */
+.cs-ba {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 22px;
+}
+.cs-ba-col {
+  background: rgba(0,0,0,0.25);
+  border: 1px solid var(--border);
+  border-radius: var(--r3);
+  padding: 12px 14px;
+}
+.cs-ba-label {
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: 8px;
+}
+.cs-ba-col.after .cs-ba-label { color: var(--card-accent, var(--cyan)); }
+.cs-ba-row {
+  font-size: 10px;
+  color: var(--muted);
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.cs-ba-row:last-child { border-bottom: none; }
+.cs-ba-row .val { color: var(--text); font-weight: 700; }
+.cs-ba-col.after .cs-ba-row .val { color: var(--card-accent, var(--cyan)); }
+
+/* ── Module chips ── */
+.cs-modules {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+}
+.cs-module-chip {
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  border-radius: 4px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  color: var(--dim);
+  text-transform: uppercase;
+}
+.cs-module-chip.primary {
+  border-color: var(--card-accent-glow, var(--cyan-glow));
+  color: var(--card-accent, var(--cyan));
+  background: var(--card-accent-dim, var(--cyan-dim));
+}
+
+/* ── Card footer ── */
+.cs-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: auto;
+  padding-top: 18px;
+  border-top: 1px solid var(--border);
+}
+.cs-score-badge {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.cs-score-badge .num {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--card-accent, var(--cyan));
+  line-height: 1;
+}
+.cs-score-badge .denom { font-size: 11px; color: var(--dim); }
+.cs-score-badge .label { font-size: 9px; color: var(--dim); letter-spacing: 0.1em; text-transform: uppercase; margin-left: 4px; }
+
+.cs-cta {
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: color 150ms ease;
+  cursor: pointer;
+}
+.cs-card:hover .cs-cta { color: var(--card-accent, var(--cyan)); }
+.cs-cta::after { content: "→"; transition: transform 150ms ease; }
+.cs-card:hover .cs-cta::after { transform: translateX(4px); }
+
+/* ── Expanded overlay ── */
+.cs-expanded {
+  display: none;
+  padding: 0 max(32px,7vw);
+  margin-bottom: 2px;
+  position: relative;
+  z-index: 1;
+}
+.cs-expanded.open { display: block; }
+.cs-expanded-inner {
+  background: rgba(0,0,0,0.55);
+  border: 1px solid var(--border-hi);
+  border-radius: var(--r);
+  padding: 36px 40px;
+  position: relative;
+  animation: fade-up 0.3s ease;
+}
+.cs-close {
+  position: absolute;
+  top: 20px; right: 20px;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  border-radius: 50%;
+  width: 32px; height: 32px;
+  font-size: 16px;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: all 150ms ease;
+  line-height: 1;
+}
+.cs-close:hover { border-color: var(--red); color: var(--red); }
+
+.cs-expanded-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 20px;
+}
+@media (max-width: 800px) { .cs-expanded-grid { grid-template-columns: 1fr; } }
+
+.cs-detail-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cs-detail-block h4 {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: var(--dim);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.cs-detail-line {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  padding: 5px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+}
+.cs-detail-line:last-child { border-bottom: none; }
+.cs-detail-line .k { color: var(--muted); }
+.cs-detail-line .v { color: var(--text); font-weight: 700; }
+.cs-detail-line .v.pos { color: var(--green); }
+.cs-detail-line .v.hi { color: var(--cyan); }
+
+.cs-reasoning-block {
+  margin-top: 20px;
+  background: rgba(0,0,0,0.3);
+  border-radius: var(--r2);
+  padding: 16px 20px;
+}
+.cs-reasoning-block h4 {
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: var(--dim);
+  text-transform: uppercase;
+  margin-bottom: 12px;
+}
+.cs-reasoning-line {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.7;
+  margin-bottom: 6px;
+  padding-left: 16px;
+  position: relative;
+}
+.cs-reasoning-line::before {
+  content: "→";
+  position: absolute;
+  left: 0;
+  color: var(--cyan);
+}
+
+/* Bottom CTA strip */
+.cs-bottom-cta {
+  padding: 80px max(32px,7vw) 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+  position: relative;
+  z-index: 1;
+}
+.cs-bottom-cta h2 {
+  font-family: var(--font-display);
+  font-size: clamp(24px, 3.5vw, 44px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.cs-bottom-cta h2 em {
+  font-style: normal;
+  color: var(--cyan);
+}
+.cs-bottom-cta p {
+  font-size: 13px;
+  color: var(--muted);
+  max-width: 440px;
+  line-height: 1.8;
+}
+</style>
+</head>
+<body>
+<div class="bg-grid" aria-hidden="true"></div>
+
+<header class="topbar">
+  <div class="topbar-logo"><div class="mark"></div>A.A.S</div>
+  <div class="topbar-status">
+    <span class="status-dot"></span>CASE ARCHIVE
+    <span style="color:var(--dim)">|</span>
+    <span id="sysTime">--:--:--</span>
+  </div>
+  <nav class="topbar-nav">
+    <a href="index.html"       class="nav-btn">Overview</a>
+    <a href="diagnostic.html"  class="nav-btn">Diagnostic</a>
+    <a href="results.html"     class="nav-btn">Results</a>
+    <a href="casestudies.html" class="nav-btn active">Case Studies</a>
+  </nav>
+</header>
+
+<!-- ═══ HERO ═══ -->
+<div class="cs-hero">
+  <div class="cs-hero-label">Archive — Subject Case Files</div>
+  <h1 class="cs-hero-h1">Six individuals.<br><em>Six configurations.</em></h1>
+  <p class="cs-hero-sub">
+    Each profile was generated by the A.A.S engine from real biometric and behavioral inputs. These are the complete case records — inputs, reasoning, modules, and outcome metrics.
+  </p>
+  <div class="cs-stats-bar">
+    <div class="cs-stat"><div class="cs-n">6</div><div class="cs-l">Completed Cases</div></div>
+    <div class="cs-stat"><div class="cs-n">12</div><div class="cs-l">Module Types</div></div>
+    <div class="cs-stat"><div class="cs-n">6</div><div class="cs-l">Body Parts Rendered</div></div>
+    <div class="cs-stat"><div class="cs-n">94%</div><div class="cs-l">Avg Score Improvement</div></div>
+  </div>
+</div>
+
+<!-- ═══ FILTER BAR ═══ -->
+<div class="cs-filter-bar">
+  <button class="cs-filter active" data-filter="all">All Cases</button>
+  <div class="cs-filter-sep"></div>
+  <button class="cs-filter" data-filter="neural">Neural</button>
+  <button class="cs-filter" data-filter="structural">Structural</button>
+  <button class="cs-filter" data-filter="stealth">Stealth</button>
+  <button class="cs-filter" data-filter="endurance">Endurance</button>
+  <button class="cs-filter" data-filter="sensory">Sensory</button>
+  <button class="cs-filter" data-filter="recovery">Recovery</button>
+</div>
+
+<!-- ═══ FEATURED CARD — SUBJECT 01 ═══ -->
+<div class="cs-grid featured" id="grid-featured">
+  <div class="cs-card featured-card" 
+       style="--card-accent:#3dffb2; --card-accent-dim:rgba(61,255,178,0.10); --card-accent-glow:rgba(61,255,178,0.22);"
+       data-tags="recovery structural"
+       onclick="toggleExpand('detail-01', this)">
+    
+    <div class="cs-avatar">
+      <div class="cs-avatar-wrap" style="--card-accent:#3dffb2">
+        <svg viewBox="0 0 480 480" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id="g01" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#3dffb2" stop-opacity="0.18"/><stop offset="100%" stop-color="#3dffb2" stop-opacity="0"/></radialGradient>
+            <filter id="gf01"><feGaussianBlur in="SourceGraphic" stdDeviation="4" result="b"/><feComposite in="SourceGraphic" in2="b" operator="over"/></filter>
+          </defs>
+          <circle cx="240" cy="240" r="180" fill="url(#g01)"/>
+          <!-- Leg unit — titanium joint -->
+          <rect x="188" y="42" width="104" height="162" rx="24" fill="#0e1520" stroke="#3dffb2" stroke-width="1.5" opacity="0.93"/>
+          <ellipse cx="240" cy="218" rx="50" ry="28" fill="#0e1520" stroke="#3dffb2" stroke-width="2" filter="url(#gf01)"/>
+          <circle cx="240" cy="218" r="16" fill="none" stroke="#3dffb2" stroke-width="2.5" opacity="0.9" filter="url(#gf01)"/>
+          <circle cx="240" cy="218" r="6" fill="#3dffb2" opacity="0.6"/>
+          <circle cx="240" cy="218" r="2.5" fill="#3dffb2" opacity="1" filter="url(#gf01)"/>
+          <rect x="192" y="244" width="96" height="145" rx="20" fill="#0e1520" stroke="#3dffb2" stroke-width="1.5" opacity="0.92"/>
+          <rect x="200" y="387" width="80" height="30" rx="12" fill="#0e1520" stroke="#3dffb2" stroke-width="1.5" opacity="0.9"/>
+          <rect x="186" y="414" width="108" height="44" rx="15" fill="#0e1520" stroke="#3dffb2" stroke-width="1.5" opacity="0.9"/>
+          <!-- neural trace -->
+          <path d="M240 50 L240 210" stroke="#3dffb2" stroke-width="1.5" stroke-dasharray="5 3" opacity="0.5" filter="url(#gf01)"/>
+          <path d="M240 248 L240 382" stroke="#3dffb2" stroke-width="1.2" stroke-dasharray="4 4" opacity="0.45" filter="url(#gf01)"/>
+          <!-- sensor nodes -->
+          <circle cx="200" cy="80" r="6" fill="none" stroke="#3dffb2" stroke-width="1" opacity="0.7" filter="url(#gf01)"/><circle cx="200" cy="80" r="2" fill="#3dffb2" opacity="0.9" filter="url(#gf01)"/>
+          <circle cx="280" cy="80" r="6" fill="none" stroke="#3dffb2" stroke-width="1" opacity="0.7" filter="url(#gf01)"/><circle cx="280" cy="80" r="2" fill="#3dffb2" opacity="0.9" filter="url(#gf01)"/>
+          <!-- thermal vents -->
+          <rect x="295" y="268" width="16" height="4" rx="2" fill="#3dffb2" opacity="0.4"/>
+          <rect x="295" y="282" width="16" height="4" rx="2" fill="#3dffb2" opacity="0.4"/>
+          <rect x="295" y="296" width="16" height="4" rx="2" fill="#3dffb2" opacity="0.4"/>
+          <!-- HUD -->
+          <rect x="18" y="18" width="120" height="54" rx="6" fill="rgba(0,0,0,0.55)" stroke="#3dffb2" stroke-width="0.7" opacity="0.6"/>
+          <text x="28" y="36" font-size="7" fill="#3dffb2" font-family="monospace" letter-spacing="1" opacity="0.7">REGEN-247</text>
+          <text x="28" y="52" font-size="9" fill="#3dffb2" font-family="monospace" font-weight="bold">ACTIVE</text>
+          <text x="28" y="64" font-size="7" fill="rgba(235,240,255,0.5)" font-family="monospace">4 MOD</text>
+          <rect x="340" y="18" width="106" height="44" rx="6" fill="rgba(0,0,0,0.50)" stroke="#3dffb2" stroke-width="0.6" opacity="0.5"/>
+          <text x="350" y="36" font-size="7" fill="rgba(235,240,255,0.5)" font-family="monospace" letter-spacing="1">SCORE</text>
+          <text x="350" y="52" font-size="14" fill="#3dffb2" font-family="monospace" font-weight="bold">82</text>
+          <text x="380" y="52" font-size="8" fill="rgba(235,240,255,0.4)" font-family="monospace">/100</text>
+        </svg>
+      </div>
+    </div>
+
+    <div class="cs-body">
+      <div class="cs-meta">
+        <span class="cs-build-id">REGEN-247</span>
+        <span class="cs-tag">Featured</span>
+        <span class="cs-tag">Lower Body</span>
+        <span class="cs-tag">Recovery</span>
+      </div>
+      <div class="cs-name">Nadia Osei-Mensah</div>
+      <div class="cs-role">Professional Marathon Athlete — Berlin, Germany</div>
+      <div class="cs-quote">"After my second ACL reconstruction I thought my career was finished. The titanium joint reinforcement changed everything — my stride efficiency is better than pre-injury."</div>
+      <div class="cs-narrative">
+        Nadia presented with a chronic lower body injury profile following two ACL reconstructions over four years. High activity demands combined with persistent injury risk required a structural-first approach. The engine routed her to a leg configuration with titanium joint reinforcement and biofeedback sensor array for continuous recovery monitoring. A bio-core power unit was selected to minimize metabolic overhead during long-distance exertion.
+      </div>
+      <div class="cs-ba">
+        <div class="cs-ba-col">
+          <div class="cs-ba-label">Before</div>
+          <div class="cs-ba-row"><span class="k">Stability</span><span class="val">44%</span></div>
+          <div class="cs-ba-row"><span class="k">Neural Latency</span><span class="val">14ms</span></div>
+          <div class="cs-ba-row"><span class="k">Recovery Rate</span><span class="val">61%</span></div>
+          <div class="cs-ba-row"><span class="k">Risk Index</span><span class="val">7/10</span></div>
+        </div>
+        <div class="cs-ba-col after">
+          <div class="cs-ba-label">After</div>
+          <div class="cs-ba-row"><span class="k">Stability</span><span class="val">+68%</span></div>
+          <div class="cs-ba-row"><span class="k">Neural Latency</span><span class="val">9ms</span></div>
+          <div class="cs-ba-row"><span class="k">Recovery Rate</span><span class="val">+94%</span></div>
+          <div class="cs-ba-row"><span class="k">Risk Index</span><span class="val">3/10</span></div>
+        </div>
+      </div>
+      <div class="cs-modules">
+        <span class="cs-module-chip primary">STRUCTURAL</span>
+        <span class="cs-module-chip primary">SENSOR</span>
+        <span class="cs-module-chip primary">POWER</span>
+        <span class="cs-module-chip">THERMAL</span>
+        <span class="cs-module-chip">NEURAL</span>
+      </div>
+      <div class="cs-footer">
+        <div class="cs-score-badge">
+          <span class="num">82</span><span class="denom">/100</span>
+          <span class="label">Augment Score</span>
+        </div>
+        <div class="cs-cta">View Full Profile</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Expanded detail 01 -->
+<div class="cs-expanded" id="detail-01">
+  <div class="cs-expanded-inner">
+    <button class="cs-close" onclick="closeExpand('detail-01')">✕</button>
+    <div class="cs-expanded-grid">
+      <div class="cs-detail-block">
+        <h4>Input Profile</h4>
+        <div class="cs-detail-line"><span class="k">Sleep</span><span class="v">6.5h / Fair</span></div>
+        <div class="cs-detail-line"><span class="k">Stress</span><span class="v">High</span></div>
+        <div class="cs-detail-line"><span class="k">Work Type</span><span class="v">Physical</span></div>
+        <div class="cs-detail-line"><span class="k">Activity</span><span class="v">Athlete</span></div>
+        <div class="cs-detail-line"><span class="k">Injury</span><span class="v">Lower Body (chronic)</span></div>
+        <div class="cs-detail-line"><span class="k">Climate</span><span class="v">Temperate</span></div>
+        <div class="cs-detail-line"><span class="k">Environment</span><span class="v">Field / Outdoor</span></div>
+        <div class="cs-detail-line"><span class="k">Goals</span><span class="v hi">Recovery, Endurance</span></div>
+      </div>
+      <div class="cs-detail-block">
+        <h4>Selected Modules</h4>
+        <div class="cs-detail-line"><span class="k">Neural</span><span class="v">Stabilizer Array</span></div>
+        <div class="cs-detail-line"><span class="k">Structural</span><span class="v">Titanium Joint</span></div>
+        <div class="cs-detail-line"><span class="k">Thermal</span><span class="v">Active Cooling Mesh</span></div>
+        <div class="cs-detail-line"><span class="k">Power</span><span class="v">Longevity Bio-Core</span></div>
+        <div class="cs-detail-line"><span class="k">Sensor</span><span class="v">Biofeedback Array</span></div>
+        <div class="cs-detail-line"><span class="k">Surface</span><span class="v">Stealth Nano-Coating</span></div>
+      </div>
+      <div class="cs-detail-block">
+        <h4>Performance Delta</h4>
+        <div class="cs-detail-line"><span class="k">Neural</span><span class="v pos">+36%</span></div>
+        <div class="cs-detail-line"><span class="k">Stability</span><span class="v pos">+44%</span></div>
+        <div class="cs-detail-line"><span class="k">Thermal</span><span class="v pos">+30%</span></div>
+        <div class="cs-detail-line"><span class="k">Score</span><span class="v hi">82 / 100</span></div>
+        <div class="cs-detail-line"><span class="k">Risk Index</span><span class="v">3 / 10</span></div>
+        <div class="cs-detail-line"><span class="k">Profile Score</span><span class="v">64 / 100</span></div>
+      </div>
+    </div>
+    <div class="cs-reasoning-block">
+      <h4>AI Reasoning Log</h4>
+      <div class="cs-reasoning-line">High activity + chronic lower body injury → Titanium Joint Reinforcement selected to redistribute load and break re-injury cycles</div>
+      <div class="cs-reasoning-line">Recovery goal + athlete activity → Biofeedback Sensor Array selected for continuous recovery monitoring and adaptive response</div>
+      <div class="cs-reasoning-line">Endurance goal in temperate climate → Active Cooling Mesh selected to sustain output during prolonged exertion</div>
+      <div class="cs-reasoning-line">High stress profile → Neural Stabilizer Array deployed to regulate cortical hyperactivation under competitive pressure</div>
+      <div class="cs-reasoning-line">Longevity/recovery primary goals → Bio-Core selected; symbiotic energy generation reduces metabolic overhead on long runs</div>
+      <div class="cs-reasoning-line">Field environment detected → Stealth Nano-Coating applied for passive EM signature management during outdoor operation</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ MAIN 2-COL GRID ═══ -->
+<div class="cs-grid" id="grid-main">
+
+  <!-- SUBJECT 02 -->
+  <div class="cs-card"
+       style="--card-accent:#3df0ff; --card-accent-dim:rgba(61,240,255,0.10); --card-accent-glow:rgba(61,240,255,0.22);"
+       data-tags="neural sensory"
+       onclick="toggleExpand('detail-02', this)">
+    <div class="cs-meta">
+      <span class="cs-build-id">APEX-518</span>
+      <span class="cs-tag">Ocular</span>
+      <span class="cs-tag">Focus</span>
+    </div>
+    <div style="display:flex;gap:20px;align-items:flex-start;margin-bottom:20px">
+      <div class="cs-avatar-wrap" style="width:110px;height:110px;flex-shrink:0;--card-accent:#3df0ff">
+        <svg viewBox="0 0 480 480" xmlns="http://www.w3.org/2000/svg">
+          <defs><radialGradient id="g02" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#3df0ff" stop-opacity="0.2"/><stop offset="100%" stop-color="#3df0ff" stop-opacity="0"/></radialGradient><filter id="gf02"><feGaussianBlur in="SourceGraphic" stdDeviation="5"/></filter></defs>
+          <circle cx="240" cy="240" r="180" fill="url(#g02)"/>
+          <!-- Eye unit -->
+          <circle cx="240" cy="200" r="105" fill="#0d1220" stroke="#3df0ff" stroke-width="1.5" opacity="0.92"/>
+          <circle cx="240" cy="200" r="88" fill="none" stroke="#3df0ff" stroke-width="0.6" stroke-dasharray="4 6" opacity="0.3"/>
+          <!-- aperture blades -->
+          <path d="M240,138 L260,176 L240,162 L220,176 Z" fill="#3df0ff" opacity="0.12"/>
+          <path d="M302,200 L264,220 L278,200 L264,180 Z" fill="#3df0ff" opacity="0.12"/>
+          <path d="M240,262 L220,224 L240,238 L260,224 Z" fill="#3df0ff" opacity="0.12"/>
+          <path d="M178,200 L216,180 L202,200 L216,220 Z" fill="#3df0ff" opacity="0.12"/>
+          <circle cx="240" cy="200" r="62" fill="none" stroke="#3df0ff" stroke-width="2" opacity="0.9" filter="url(#gf02)"/>
+          <circle cx="240" cy="200" r="28" fill="#3df0ff" opacity="0.12"/>
+          <circle cx="240" cy="200" r="28" fill="none" stroke="#3df0ff" stroke-width="2.5" opacity="0.85" filter="url(#gf02)"/>
+          <circle cx="240" cy="200" r="10" fill="#3df0ff" opacity="0.5"/>
+          <circle cx="240" cy="200" r="4" fill="#3df0ff" opacity="1" filter="url(#gf02)"/>
+          <!-- neural spokes -->
+          <line x1="240" y1="228" x2="240" y2="280" stroke="#3df0ff" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.5" filter="url(#gf02)"/>
+          <line x1="212" y1="220" x2="178" y2="264" stroke="#3df0ff" stroke-width="1" stroke-dasharray="3 4" opacity="0.35" filter="url(#gf02)"/>
+          <line x1="268" y1="220" x2="302" y2="264" stroke="#3df0ff" stroke-width="1" stroke-dasharray="3 4" opacity="0.35" filter="url(#gf02)"/>
+          <!-- scan ring -->
+          <circle cx="240" cy="200" r="72" fill="none" stroke="#3df0ff" stroke-width="0.5" stroke-dasharray="6 8" opacity="0.2"/>
+        </svg>
+      </div>
+      <div>
+        <div class="cs-name" style="font-size:18px">Dr. Yuki Tanaka</div>
+        <div class="cs-role">Neurosurgeon — Tokyo, Japan</div>
+        <div class="cs-quote" style="font-size:11px;margin-top:10px">"Surgical precision increased by an order of magnitude. I can see things in the OR I never could before."</div>
+      </div>
+    </div>
+    <div class="cs-modules">
+      <span class="cs-module-chip primary">NEURAL</span>
+      <span class="cs-module-chip primary">SENSOR</span>
+      <span class="cs-module-chip">POWER</span>
+      <span class="cs-module-chip">SURFACE</span>
+    </div>
+    <div class="cs-footer">
+      <div class="cs-score-badge"><span class="num">91</span><span class="denom">/100</span><span class="label">Augment Score</span></div>
+      <div class="cs-cta">View Profile</div>
+    </div>
+  </div>
+
+  <!-- SUBJECT 03 -->
+  <div class="cs-card"
+       style="--card-accent:#ffc14a; --card-accent-dim:rgba(255,193,74,0.10); --card-accent-glow:rgba(255,193,74,0.22);"
+       data-tags="structural endurance"
+       onclick="toggleExpand('detail-03', this)">
+    <div class="cs-meta">
+      <span class="cs-build-id">TITAN-883</span>
+      <span class="cs-tag">Arm</span>
+      <span class="cs-tag">Strength</span>
+    </div>
+    <div style="display:flex;gap:20px;align-items:flex-start;margin-bottom:20px">
+      <div class="cs-avatar-wrap" style="width:110px;height:110px;flex-shrink:0;--card-accent:#ffc14a">
+        <svg viewBox="0 0 480 480" xmlns="http://www.w3.org/2000/svg">
+          <defs><radialGradient id="g03" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#ffc14a" stop-opacity="0.18"/><stop offset="100%" stop-color="#ffc14a" stop-opacity="0"/></radialGradient><filter id="gf03"><feGaussianBlur in="SourceGraphic" stdDeviation="4"/></filter></defs>
+          <circle cx="240" cy="240" r="180" fill="url(#g03)"/>
+          <!-- Heavy arm — armor level 3 -->
+          <rect x="186" y="52" width="108" height="158" rx="24" fill="#121820" stroke="#ffc14a" stroke-width="2" opacity="0.95"/>
+          <!-- side armor plates -->
+          <rect x="170" y="68" width="18" height="95" rx="6" fill="rgba(255,193,74,0.12)" stroke="#ffc14a" stroke-width="1" opacity="0.7"/>
+          <rect x="292" y="68" width="18" height="95" rx="6" fill="rgba(255,193,74,0.12)" stroke="#ffc14a" stroke-width="1" opacity="0.7"/>
+          <rect x="157" y="84" width="14" height="62" rx="5" fill="rgba(255,193,74,0.08)" stroke="#ffc14a" stroke-width="0.8" opacity="0.55"/>
+          <rect x="309" y="84" width="14" height="62" rx="5" fill="rgba(255,193,74,0.08)" stroke="#ffc14a" stroke-width="0.8" opacity="0.55"/>
+          <!-- industrial bolts -->
+          <circle cx="200" cy="68" r="3" fill="none" stroke="#ffc14a" stroke-width="1" opacity="0.5"/><circle cx="200" cy="68" r="1.2" fill="#ffc14a" opacity="0.7"/>
+          <circle cx="280" cy="68" r="3" fill="none" stroke="#ffc14a" stroke-width="1" opacity="0.5"/><circle cx="280" cy="68" r="1.2" fill="#ffc14a" opacity="0.7"/>
+          <circle cx="200" cy="190" r="3" fill="none" stroke="#ffc14a" stroke-width="1" opacity="0.5"/><circle cx="200" cy="190" r="1.2" fill="#ffc14a" opacity="0.7"/>
+          <circle cx="280" cy="190" r="3" fill="none" stroke="#ffc14a" stroke-width="1" opacity="0.5"/><circle cx="280" cy="190" r="1.2" fill="#ffc14a" opacity="0.7"/>
+          <!-- elbow -->
+          <ellipse cx="240" cy="220" rx="52" ry="22" fill="#121820" stroke="#ffc14a" stroke-width="2" opacity="0.95"/>
+          <ellipse cx="240" cy="220" rx="58" ry="10" fill="none" stroke="#ffc14a" stroke-width="1.5" opacity="0.45"/>
+          <!-- forearm -->
+          <rect x="192" y="238" width="96" height="125" rx="18" fill="#121820" stroke="#ffc14a" stroke-width="1.8" opacity="0.93"/>
+          <!-- power cell -->
+          <rect x="212" y="132" width="56" height="18" rx="5" fill="none" stroke="#ffc14a" stroke-width="1" opacity="0.7"/>
+          <rect x="214" y="134" width="34" height="14" rx="3" fill="#ffc14a" opacity="0.2"/>
+          <!-- thermal vents -->
+          <rect x="292" y="96" width="18" height="4" rx="2" fill="#ffc14a" opacity="0.4"/>
+          <rect x="292" y="110" width="18" height="4" rx="2" fill="#ffc14a" opacity="0.4"/>
+          <rect x="292" y="124" width="18" height="4" rx="2" fill="#ffc14a" opacity="0.4"/>
+        </svg>
+      </div>
+      <div>
+        <div class="cs-name" style="font-size:18px">Marcus Okafor</div>
+        <div class="cs-role">Deep-Sea Construction Engineer — Lagos / North Sea</div>
+        <div class="cs-quote" style="font-size:11px;margin-top:10px">"The carbon exo-frame means I can work 16-hour deep dive shifts without fatigue-induced errors. Industrial work changed completely."</div>
+      </div>
+    </div>
+    <div class="cs-modules">
+      <span class="cs-module-chip primary">STRUCTURAL</span>
+      <span class="cs-module-chip primary">THERMAL</span>
+      <span class="cs-module-chip">NEURAL</span>
+      <span class="cs-module-chip">POWER</span>
+      <span class="cs-module-chip">SENSOR</span>
+    </div>
+    <div class="cs-footer">
+      <div class="cs-score-badge"><span class="num">78</span><span class="denom">/100</span><span class="label">Augment Score</span></div>
+      <div class="cs-cta">View Profile</div>
+    </div>
+  </div>
+
+  <!-- SUBJECT 04 -->
+  <div class="cs-card"
+       style="--card-accent:#8899bb; --card-accent-dim:rgba(136,153,187,0.10); --card-accent-glow:rgba(136,153,187,0.20);"
+       data-tags="stealth"
+       onclick="toggleExpand('detail-04', this)">
+    <div class="cs-meta">
+      <span class="cs-build-id">SHADE-091</span>
+      <span class="cs-tag">Hand</span>
+      <span class="cs-tag">Stealth</span>
+    </div>
+    <div style="display:flex;gap:20px;align-items:flex-start;margin-bottom:20px">
+      <div class="cs-avatar-wrap" style="width:110px;height:110px;flex-shrink:0;--card-accent:#8899bb">
+        <svg viewBox="0 0 480 480" xmlns="http://www.w3.org/2000/svg">
+          <defs><radialGradient id="g04" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#8899bb" stop-opacity="0.12"/><stop offset="100%" stop-color="#8899bb" stop-opacity="0"/></radialGradient><filter id="gf04"><feGaussianBlur in="SourceGraphic" stdDeviation="3"/></filter></defs>
+          <circle cx="240" cy="240" r="180" fill="url(#g04)"/>
+          <!-- Hand unit — stealth (low opacity, muted) -->
+          <rect x="202" y="148" width="76" height="58" rx="14" fill="#0d1018" stroke="#8899bb" stroke-width="1" opacity="0.75"/>
+          <rect x="185" y="200" width="110" height="108" rx="18" fill="#0d1018" stroke="#8899bb" stroke-width="1.2" opacity="0.78"/>
+          <!-- fingers -->
+          <rect x="192" y="306" width="20" height="38" rx="6" fill="#0d1018" stroke="#8899bb" stroke-width="0.8" opacity="0.7"/>
+          <rect x="217" y="296" width="21" height="48" rx="6" fill="#0d1018" stroke="#8899bb" stroke-width="0.8" opacity="0.7"/>
+          <rect x="243" y="294" width="21" height="50" rx="6" fill="#0d1018" stroke="#8899bb" stroke-width="0.8" opacity="0.7"/>
+          <rect x="269" y="298" width="20" height="44" rx="6" fill="#0d1018" stroke="#8899bb" stroke-width="0.8" opacity="0.7"/>
+          <rect x="295" y="310" width="16" height="30" rx="5" fill="#0d1018" stroke="#8899bb" stroke-width="0.7" opacity="0.65"/>
+          <!-- thumb -->
+          <rect x="178" y="228" width="22" height="52" rx="9" fill="#0d1018" stroke="#8899bb" stroke-width="0.8" opacity="0.68"/>
+          <!-- minimal neural -->
+          <line x1="240" y1="168" x2="240" y2="296" stroke="#8899bb" stroke-width="1" stroke-dasharray="4 4" opacity="0.28" filter="url(#gf04)"/>
+          <!-- stealth indicator -->
+          <rect x="22" y="22" width="130" height="42" rx="6" fill="rgba(0,0,0,0.5)" stroke="#8899bb" stroke-width="0.6" opacity="0.55"/>
+          <text x="32" y="38" font-size="7" fill="#8899bb" font-family="monospace" letter-spacing="1" opacity="0.65">SHADE-091</text>
+          <text x="32" y="52" font-size="8" fill="#8899bb" font-family="monospace" opacity="0.5">EM: MINIMAL</text>
+        </svg>
+      </div>
+      <div>
+        <div class="cs-name" style="font-size:18px">Subject Redacted</div>
+        <div class="cs-role">Field Operative — [Location Classified]</div>
+        <div class="cs-quote" style="font-size:11px;margin-top:10px">"The nano-coating drops my EM signature below detection thresholds. I move through sensor arrays without a trace."</div>
+      </div>
+    </div>
+    <div class="cs-modules">
+      <span class="cs-module-chip primary">SURFACE</span>
+      <span class="cs-module-chip">SENSOR</span>
+      <span class="cs-module-chip">STRUCTURAL</span>
+      <span class="cs-module-chip">NEURAL</span>
+    </div>
+    <div class="cs-footer">
+      <div class="cs-score-badge"><span class="num">67</span><span class="denom">/100</span><span class="label">Augment Score</span></div>
+      <div class="cs-cta">View Profile</div>
+    </div>
+  </div>
+
+  <!-- SUBJECT 05 -->
+  <div class="cs-card"
+       style="--card-accent:#d97aff; --card-accent-dim:rgba(217,122,255,0.10); --card-accent-glow:rgba(217,122,255,0.22);"
+       data-tags="sensory neural"
+       onclick="toggleExpand('detail-05', this)">
+    <div class="cs-meta">
+      <span class="cs-build-id">VELA-334</span>
+      <span class="cs-tag">Spine</span>
+      <span class="cs-tag">Sensory</span>
+    </div>
+    <div style="display:flex;gap:20px;align-items:flex-start;margin-bottom:20px">
+      <div class="cs-avatar-wrap" style="width:110px;height:110px;flex-shrink:0;--card-accent:#d97aff">
+        <svg viewBox="0 0 480 480" xmlns="http://www.w3.org/2000/svg">
+          <defs><radialGradient id="g05" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#d97aff" stop-opacity="0.18"/><stop offset="100%" stop-color="#d97aff" stop-opacity="0"/></radialGradient><filter id="gf05"><feGaussianBlur in="SourceGraphic" stdDeviation="4"/></filter></defs>
+          <circle cx="240" cy="240" r="180" fill="url(#g05)"/>
+          <!-- Spine unit -->
+          <rect x="234" y="48" width="12" height="384" rx="6" fill="#0e1020" stroke="#d97aff" stroke-width="0.8" opacity="0.5"/>
+          <!-- vertebrae — 8 -->
+          <rect x="200" y="52" width="80" height="36" rx="10" fill="#0e1020" stroke="#d97aff" stroke-width="1.2" opacity="0.9"/>
+          <rect x="198" y="96" width="84" height="34" rx="10" fill="#0e1020" stroke="#d97aff" stroke-width="1.2" opacity="0.9"/>
+          <rect x="196" y="138" width="88" height="34" rx="10" fill="#0e1020" stroke="#d97aff" stroke-width="1.2" opacity="0.9"/>
+          <rect x="196" y="180" width="88" height="34" rx="10" fill="#0e1020" stroke="#d97aff" stroke-width="1.2" opacity="0.9"/>
+          <!-- power orb center -->
+          <circle cx="240" cy="216" r="24" fill="#d97aff" opacity="0.05" filter="url(#gf05)"/>
+          <circle cx="240" cy="216" r="16" fill="none" stroke="#d97aff" stroke-width="1.5" opacity="0.7" filter="url(#gf05)"/>
+          <circle cx="240" cy="216" r="8" fill="#d97aff" opacity="0.3"/>
+          <circle cx="240" cy="216" r="3" fill="#d97aff" opacity="0.95" filter="url(#gf05)"/>
+          <rect x="194" y="224" width="92" height="34" rx="10" fill="#0e1020" stroke="#d97aff" stroke-width="1.2" opacity="0.9"/>
+          <rect x="196" y="266" width="88" height="34" rx="10" fill="#0e1020" stroke="#d97aff" stroke-width="1.2" opacity="0.9"/>
+          <rect x="200" y="308" width="80" height="34" rx="10" fill="#0e1020" stroke="#d97aff" stroke-width="1.2" opacity="0.9"/>
+          <rect x="204" y="350" width="72" height="36" rx="10" fill="#0e1020" stroke="#d97aff" stroke-width="1.2" opacity="0.9"/>
+          <!-- neural trunk -->
+          <line x1="240" y1="50" x2="240" y2="430" stroke="#d97aff" stroke-width="2" stroke-dasharray="5 3" opacity="0.45" filter="url(#gf05)"/>
+          <!-- lateral branches -->
+          <line x1="240" y1="89" x2="190" y2="89" stroke="#d97aff" stroke-width="0.8" stroke-dasharray="3 4" opacity="0.3" filter="url(#gf05)"/>
+          <line x1="240" y1="89" x2="290" y2="89" stroke="#d97aff" stroke-width="0.8" stroke-dasharray="3 4" opacity="0.3" filter="url(#gf05)"/>
+          <line x1="240" y1="172" x2="188" y2="172" stroke="#d97aff" stroke-width="0.8" stroke-dasharray="3 4" opacity="0.3" filter="url(#gf05)"/>
+          <line x1="240" y1="172" x2="292" y2="172" stroke="#d97aff" stroke-width="0.8" stroke-dasharray="3 4" opacity="0.3" filter="url(#gf05)"/>
+          <!-- sensor nodes -->
+          <circle cx="180" cy="89" r="5" fill="none" stroke="#d97aff" stroke-width="1" opacity="0.65" filter="url(#gf05)"/><circle cx="180" cy="89" r="2" fill="#d97aff" opacity="0.8" filter="url(#gf05)"/>
+          <circle cx="300" cy="89" r="5" fill="none" stroke="#d97aff" stroke-width="1" opacity="0.65" filter="url(#gf05)"/><circle cx="300" cy="89" r="2" fill="#d97aff" opacity="0.8" filter="url(#gf05)"/>
+        </svg>
+      </div>
+      <div>
+        <div class="cs-name" style="font-size:18px">Elara Voss</div>
+        <div class="cs-role">Immersive Experience Designer — Amsterdam, Netherlands</div>
+        <div class="cs-quote" style="font-size:11px;margin-top:10px">"The spinal neural amplifier lets me feel the audience's physical response in real time. My installations have become fully bidirectional."</div>
+      </div>
+    </div>
+    <div class="cs-modules">
+      <span class="cs-module-chip primary">NEURAL</span>
+      <span class="cs-module-chip primary">SURFACE</span>
+      <span class="cs-module-chip">POWER</span>
+      <span class="cs-module-chip">SENSOR</span>
+    </div>
+    <div class="cs-footer">
+      <div class="cs-score-badge"><span class="num">88</span><span class="denom">/100</span><span class="label">Augment Score</span></div>
+      <div class="cs-cta">View Profile</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Second row — 2 col -->
+<div class="cs-grid">
+
+  <!-- SUBJECT 06 -->
+  <div class="cs-card"
+       style="--card-accent:#ff8a4a; --card-accent-dim:rgba(255,138,74,0.10); --card-accent-glow:rgba(255,138,74,0.22);"
+       data-tags="endurance structural"
+       onclick="toggleExpand('detail-06', this)">
+    <div class="cs-meta">
+      <span class="cs-build-id">ARES-762</span>
+      <span class="cs-tag">Foot</span>
+      <span class="cs-tag">Endurance</span>
+    </div>
+    <div style="display:flex;gap:20px;align-items:flex-start;margin-bottom:20px">
+      <div class="cs-avatar-wrap" style="width:110px;height:110px;flex-shrink:0;--card-accent:#ff8a4a">
+        <svg viewBox="0 0 480 480" xmlns="http://www.w3.org/2000/svg">
+          <defs><radialGradient id="g06" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#ff8a4a" stop-opacity="0.18"/><stop offset="100%" stop-color="#ff8a4a" stop-opacity="0"/></radialGradient><filter id="gf06"><feGaussianBlur in="SourceGraphic" stdDeviation="4"/></filter></defs>
+          <circle cx="240" cy="240" r="180" fill="url(#g06)"/>
+          <!-- Foot unit — heavy chronic injury + athlete -->
+          <rect x="202" y="88" width="76" height="76" rx="16" fill="#121520" stroke="#ff8a4a" stroke-width="1.8" opacity="0.94"/>
+          <ellipse cx="240" cy="168" rx="44" ry="14" fill="#121520" stroke="#ff8a4a" stroke-width="1.6" opacity="0.94" filter="url(#gf06)"/>
+          <circle cx="240" cy="168" r="7" fill="none" stroke="#ff8a4a" stroke-width="2.5" opacity="0.9"/>
+          <circle cx="240" cy="168" r="2.5" fill="#ff8a4a" opacity="0.95" filter="url(#gf06)"/>
+          <rect x="178" y="180" width="68" height="76" rx="12" fill="#121520" stroke="#ff8a4a" stroke-width="1.6" opacity="0.92"/>
+          <rect x="162" y="242" width="150" height="60" rx="14" fill="#121520" stroke="#ff8a4a" stroke-width="1.8" opacity="0.94"/>
+          <!-- toes -->
+          <rect x="168" y="300" width="20" height="34" rx="7" fill="#121520" stroke="#ff8a4a" stroke-width="1" opacity="0.85"/>
+          <rect x="194" y="295" width="22" height="40" rx="7" fill="#121520" stroke="#ff8a4a" stroke-width="1" opacity="0.85"/>
+          <rect x="222" y="293" width="22" height="42" rx="7" fill="#121520" stroke="#ff8a4a" stroke-width="1" opacity="0.85"/>
+          <rect x="250" y="296" width="20" height="38" rx="7" fill="#121520" stroke="#ff8a4a" stroke-width="1" opacity="0.85"/>
+          <rect x="276" y="304" width="16" height="28" rx="6" fill="#121520" stroke="#ff8a4a" stroke-width="0.8" opacity="0.8"/>
+          <!-- power cell -->
+          <rect x="192" y="254" width="100" height="14" rx="4" fill="none" stroke="#ff8a4a" stroke-width="0.8" opacity="0.65"/>
+          <rect x="194" y="256" width="58" height="10" rx="2.5" fill="#ff8a4a" opacity="0.2"/>
+          <!-- scar marks -->
+          <line x1="210" y1="196" x2="238" y2="208" stroke="#ff8a4a" stroke-width="0.7" opacity="0.3" stroke-linecap="round"/>
+          <line x1="272" y1="260" x2="250" y2="274" stroke="#ff8a4a" stroke-width="0.7" opacity="0.3" stroke-linecap="round"/>
+          <!-- thermal vents -->
+          <rect x="248" y="196" width="14" height="4" rx="2" fill="#ff8a4a" opacity="0.4"/>
+          <rect x="248" y="210" width="14" height="4" rx="2" fill="#ff8a4a" opacity="0.4"/>
+        </svg>
+      </div>
+      <div>
+        <div class="cs-name" style="font-size:18px">Tomás Reyero</div>
+        <div class="cs-role">Ultra-Trail Athlete — Patagonia / Madrid</div>
+        <div class="cs-quote" style="font-size:11px;margin-top:10px">"Ran 340km non-stop. The adaptive power cell and cooling system kept thermal load stable through elevation changes from sea level to 4,200m."</div>
+      </div>
+    </div>
+    <div class="cs-modules">
+      <span class="cs-module-chip primary">STRUCTURAL</span>
+      <span class="cs-module-chip primary">POWER</span>
+      <span class="cs-module-chip">THERMAL</span>
+      <span class="cs-module-chip">SENSOR</span>
+    </div>
+    <div class="cs-footer">
+      <div class="cs-score-badge"><span class="num">74</span><span class="denom">/100</span><span class="label">Augment Score</span></div>
+      <div class="cs-cta">View Profile</div>
+    </div>
+  </div>
+
+  <!-- SUBJECT 07 — Longevity -->
+  <div class="cs-card"
+       style="--card-accent:#3df0ff; --card-accent-dim:rgba(61,240,255,0.10); --card-accent-glow:rgba(61,240,255,0.22);"
+       data-tags="neural recovery"
+       onclick="toggleExpand('detail-07', this)">
+    <div class="cs-meta">
+      <span class="cs-build-id">VITA-109</span>
+      <span class="cs-tag">Arm</span>
+      <span class="cs-tag">Longevity</span>
+    </div>
+    <div style="display:flex;gap:20px;align-items:flex-start;margin-bottom:20px">
+      <div class="cs-avatar-wrap" style="width:110px;height:110px;flex-shrink:0;--card-accent:#3df0ff">
+        <svg viewBox="0 0 480 480" xmlns="http://www.w3.org/2000/svg">
+          <defs><radialGradient id="g07" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#3df0ff" stop-opacity="0.18"/><stop offset="100%" stop-color="#3df0ff" stop-opacity="0"/></radialGradient><filter id="gf07"><feGaussianBlur in="SourceGraphic" stdDeviation="4"/></filter></defs>
+          <circle cx="240" cy="240" r="180" fill="url(#g07)"/>
+          <!-- Arm — longevity build, clean organic style -->
+          <rect x="200" y="52" width="80" height="148" rx="20" fill="#0d1420" stroke="#3df0ff" stroke-width="1.4" opacity="0.92"/>
+          <!-- organic seam curves -->
+          <path d="M212 108 Q240 96 268 108" fill="none" stroke="#3df0ff" stroke-width="0.8" opacity="0.25"/>
+          <path d="M210 148 Q240 136 270 148" fill="none" stroke="#3df0ff" stroke-width="0.6" opacity="0.18"/>
+          <!-- power orb -->
+          <circle cx="240" cy="136" r="20" fill="#3df0ff" opacity="0.04" filter="url(#gf07)"/>
+          <circle cx="240" cy="136" r="13" fill="none" stroke="#3df0ff" stroke-width="1.5" opacity="0.7" filter="url(#gf07)"/>
+          <circle cx="240" cy="136" r="7" fill="#3df0ff" opacity="0.28"/>
+          <circle cx="240" cy="136" r="2.8" fill="#3df0ff" opacity="0.95" filter="url(#gf07)"/>
+          <!-- wrist ring -->
+          <ellipse cx="240" cy="208" rx="38" ry="18" fill="#0d1420" stroke="#3df0ff" stroke-width="1.4" opacity="0.95"/>
+          <ellipse cx="240" cy="208" rx="30" ry="11" fill="none" stroke="#3df0ff" stroke-width="0.7" opacity="0.35" filter="url(#gf07)"/>
+          <!-- forearm + hand -->
+          <rect x="207" y="222" width="66" height="115" rx="16" fill="#0d1420" stroke="#3df0ff" stroke-width="1.4" opacity="0.92"/>
+          <rect x="203" y="334" width="74" height="44" rx="12" fill="#0d1420" stroke="#3df0ff" stroke-width="1.2" opacity="0.9"/>
+          <!-- finger stubs -->
+          <rect x="207" y="375" width="14" height="30" rx="6" fill="#0d1420" stroke="#3df0ff" stroke-width="0.9" opacity="0.85"/>
+          <rect x="226" y="372" width="14" height="34" rx="6" fill="#0d1420" stroke="#3df0ff" stroke-width="0.9" opacity="0.85"/>
+          <rect x="246" y="372" width="14" height="34" rx="6" fill="#0d1420" stroke="#3df0ff" stroke-width="0.9" opacity="0.85"/>
+          <rect x="265" y="375" width="14" height="30" rx="6" fill="#0d1420" stroke="#3df0ff" stroke-width="0.9" opacity="0.85"/>
+          <!-- neural path -->
+          <path d="M240 68 C244 95 250 118 246 140 C242 162 232 172 235 198" stroke="#3df0ff" stroke-width="1.5" stroke-dasharray="5 3" fill="none" opacity="0.55" filter="url(#gf07)"/>
+          <!-- wrist LED ring glow -->
+          <rect x="207" y="334" width="66" height="44" rx="12" fill="none" stroke="#3df0ff" stroke-width="1.5" opacity="0.6" filter="url(#gf07)"/>
+        </svg>
+      </div>
+      <div>
+        <div class="cs-name" style="font-size:18px">Priya Sundaram</div>
+        <div class="cs-role">Biogerontologist — Bangalore / Geneva</div>
+        <div class="cs-quote" style="font-size:11px;margin-top:10px">"I study longevity in others. It felt right to apply the same principles to myself. The bio-core's symbiotic energy model reduces systemic oxidative load by 22%."</div>
+      </div>
+    </div>
+    <div class="cs-modules">
+      <span class="cs-module-chip primary">POWER</span>
+      <span class="cs-module-chip primary">NEURAL</span>
+      <span class="cs-module-chip">SENSOR</span>
+      <span class="cs-module-chip">SURFACE</span>
+      <span class="cs-module-chip">THERMAL</span>
+    </div>
+    <div class="cs-footer">
+      <div class="cs-score-badge"><span class="num">95</span><span class="denom">/100</span><span class="label">Augment Score</span></div>
+      <div class="cs-cta">View Profile</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Expanded details for remaining subjects -->
+<div class="cs-expanded" id="detail-02">
+  <div class="cs-expanded-inner">
+    <button class="cs-close" onclick="closeExpand('detail-02')">✕</button>
+    <div class="cs-expanded-grid">
+      <div class="cs-detail-block"><h4>Input Profile</h4>
+        <div class="cs-detail-line"><span class="k">Sleep</span><span class="v">7h / Excellent</span></div>
+        <div class="cs-detail-line"><span class="k">Stress</span><span class="v">Medium</span></div>
+        <div class="cs-detail-line"><span class="k">Work Type</span><span class="v">Analytical</span></div>
+        <div class="cs-detail-line"><span class="k">Activity</span><span class="v">Moderate</span></div>
+        <div class="cs-detail-line"><span class="k">Injury</span><span class="v">None</span></div>
+        <div class="cs-detail-line"><span class="k">Goals</span><span class="v hi">Sensory+, Focus</span></div>
+      </div>
+      <div class="cs-detail-block"><h4>Selected Modules</h4>
+        <div class="cs-detail-line"><span class="k">Neural</span><span class="v">Amplifier Interface</span></div>
+        <div class="cs-detail-line"><span class="k">Structural</span><span class="v">Carbon Exo Frame</span></div>
+        <div class="cs-detail-line"><span class="k">Thermal</span><span class="v">Adaptive Regulator</span></div>
+        <div class="cs-detail-line"><span class="k">Power</span><span class="v">Longevity Bio-Core</span></div>
+        <div class="cs-detail-line"><span class="k">Sensor</span><span class="v">Biofeedback Array</span></div>
+        <div class="cs-detail-line"><span class="k">Surface</span><span class="v">Bioluminescent Shell</span></div>
+      </div>
+      <div class="cs-detail-block"><h4>Performance Delta</h4>
+        <div class="cs-detail-line"><span class="k">Neural</span><span class="v pos">+58%</span></div>
+        <div class="cs-detail-line"><span class="k">Stability</span><span class="v pos">+39%</span></div>
+        <div class="cs-detail-line"><span class="k">Thermal</span><span class="v pos">+28%</span></div>
+        <div class="cs-detail-line"><span class="k">Score</span><span class="v hi">91 / 100</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="cs-expanded" id="detail-03"><div class="cs-expanded-inner"><button class="cs-close" onclick="closeExpand('detail-03')">✕</button><div class="cs-expanded-grid"><div class="cs-detail-block"><h4>Input Profile</h4><div class="cs-detail-line"><span class="k">Work Type</span><span class="v">Physical</span></div><div class="cs-detail-line"><span class="k">Activity</span><span class="v">Athlete</span></div><div class="cs-detail-line"><span class="k">Environment</span><span class="v">Industrial</span></div><div class="cs-detail-line"><span class="k">Climate</span><span class="v">Variable</span></div><div class="cs-detail-line"><span class="k">Goals</span><span class="v hi">Strength, Endurance</span></div></div><div class="cs-detail-block"><h4>Selected Modules</h4><div class="cs-detail-line"><span class="k">Neural</span><span class="v">Stabilizer Array</span></div><div class="cs-detail-line"><span class="k">Structural</span><span class="v">Carbon Exo Frame</span></div><div class="cs-detail-line"><span class="k">Thermal</span><span class="v">Adaptive Regulator</span></div><div class="cs-detail-line"><span class="k">Power</span><span class="v">Adaptive Power Cell</span></div><div class="cs-detail-line"><span class="k">Sensor</span><span class="v">Env. Sensor Cluster</span></div><div class="cs-detail-line"><span class="k">Surface</span><span class="v">Stealth Nano-Coating</span></div></div><div class="cs-detail-block"><h4>Performance Delta</h4><div class="cs-detail-line"><span class="k">Neural</span><span class="v pos">+27%</span></div><div class="cs-detail-line"><span class="k">Stability</span><span class="v pos">+50%</span></div><div class="cs-detail-line"><span class="k">Thermal</span><span class="v pos">+40%</span></div><div class="cs-detail-line"><span class="k">Score</span><span class="v hi">78 / 100</span></div></div></div></div></div>
+<div class="cs-expanded" id="detail-04"><div class="cs-expanded-inner"><button class="cs-close" onclick="closeExpand('detail-04')">✕</button><div class="cs-expanded-grid"><div class="cs-detail-block"><h4>Input Profile</h4><div class="cs-detail-line"><span class="k">Stress</span><span class="v">High</span></div><div class="cs-detail-line"><span class="k">Environment</span><span class="v">Field</span></div><div class="cs-detail-line"><span class="k">Goals</span><span class="v hi">Stealth</span></div><div class="cs-detail-line"><span class="k">Injury</span><span class="v">Upper Body</span></div></div><div class="cs-detail-block"><h4>Selected Modules</h4><div class="cs-detail-line"><span class="k">Neural</span><span class="v">Stabilizer Array</span></div><div class="cs-detail-line"><span class="k">Structural</span><span class="v">Titanium Joint</span></div><div class="cs-detail-line"><span class="k">Sensor</span><span class="v">Env. Sensor Cluster</span></div><div class="cs-detail-line"><span class="k">Surface</span><span class="v">Stealth Nano-Coating</span></div></div><div class="cs-detail-block"><h4>Performance Delta</h4><div class="cs-detail-line"><span class="k">Glow Mult</span><span class="v">0.21× (minimal)</span></div><div class="cs-detail-line"><span class="k">EM Signature</span><span class="v pos">−94%</span></div><div class="cs-detail-line"><span class="k">Score</span><span class="v hi">67 / 100</span></div></div></div></div></div>
+<div class="cs-expanded" id="detail-05"><div class="cs-expanded-inner"><button class="cs-close" onclick="closeExpand('detail-05')">✕</button><div class="cs-expanded-grid"><div class="cs-detail-block"><h4>Input Profile</h4><div class="cs-detail-line"><span class="k">Work Type</span><span class="v">Creative</span></div><div class="cs-detail-line"><span class="k">Goals</span><span class="v hi">Sensory+, Aesthetics</span></div><div class="cs-detail-line"><span class="k">Sleep</span><span class="v">8h / Excellent</span></div><div class="cs-detail-line"><span class="k">Stress</span><span class="v">Low</span></div></div><div class="cs-detail-block"><h4>Selected Modules</h4><div class="cs-detail-line"><span class="k">Neural</span><span class="v">Amplifier Interface</span></div><div class="cs-detail-line"><span class="k">Power</span><span class="v">Longevity Bio-Core</span></div><div class="cs-detail-line"><span class="k">Sensor</span><span class="v">Biofeedback Array</span></div><div class="cs-detail-line"><span class="k">Surface</span><span class="v">Bioluminescent Shell</span></div></div><div class="cs-detail-block"><h4>Performance Delta</h4><div class="cs-detail-line"><span class="k">Neural</span><span class="v pos">+52%</span></div><div class="cs-detail-line"><span class="k">Glow Mult</span><span class="v hi">1.5× (aesthetic)</span></div><div class="cs-detail-line"><span class="k">Score</span><span class="v hi">88 / 100</span></div></div></div></div></div>
+<div class="cs-expanded" id="detail-06"><div class="cs-expanded-inner"><button class="cs-close" onclick="closeExpand('detail-06')">✕</button><div class="cs-expanded-grid"><div class="cs-detail-block"><h4>Input Profile</h4><div class="cs-detail-line"><span class="k">Activity</span><span class="v">Athlete</span></div><div class="cs-detail-line"><span class="k">Injury</span><span class="v">Chronic / Multiple</span></div><div class="cs-detail-line"><span class="k">Goals</span><span class="v hi">Endurance, Recovery</span></div><div class="cs-detail-line"><span class="k">Climate</span><span class="v">Variable</span></div></div><div class="cs-detail-block"><h4>Selected Modules</h4><div class="cs-detail-line"><span class="k">Structural</span><span class="v">Titanium Joint</span></div><div class="cs-detail-line"><span class="k">Thermal</span><span class="v">Adaptive Regulator</span></div><div class="cs-detail-line"><span class="k">Power</span><span class="v">Adaptive Power Cell</span></div><div class="cs-detail-line"><span class="k">Sensor</span><span class="v">Biofeedback Array</span></div></div><div class="cs-detail-block"><h4>Performance Delta</h4><div class="cs-detail-line"><span class="k">Stability</span><span class="v pos">+44%</span></div><div class="cs-detail-line"><span class="k">Thermal</span><span class="v pos">+34%</span></div><div class="cs-detail-line"><span class="k">Scarring</span><span class="v">Visible (injury)</span></div><div class="cs-detail-line"><span class="k">Score</span><span class="v hi">74 / 100</span></div></div></div></div></div>
+<div class="cs-expanded" id="detail-07"><div class="cs-expanded-inner"><button class="cs-close" onclick="closeExpand('detail-07')">✕</button><div class="cs-expanded-grid"><div class="cs-detail-block"><h4>Input Profile</h4><div class="cs-detail-line"><span class="k">Sleep</span><span class="v">8.5h / Excellent</span></div><div class="cs-detail-line"><span class="k">Stress</span><span class="v">Low</span></div><div class="cs-detail-line"><span class="k">Work Type</span><span class="v">Analytical</span></div><div class="cs-detail-line"><span class="k">Goals</span><span class="v hi">Longevity, Focus</span></div></div><div class="cs-detail-block"><h4>Selected Modules</h4><div class="cs-detail-line"><span class="k">Neural</span><span class="v">Stabilizer Array</span></div><div class="cs-detail-line"><span class="k">Structural</span><span class="v">Carbon Exo Frame</span></div><div class="cs-detail-line"><span class="k">Thermal</span><span class="v">Adaptive Regulator</span></div><div class="cs-detail-line"><span class="k">Power</span><span class="v">Longevity Bio-Core</span></div><div class="cs-detail-line"><span class="k">Sensor</span><span class="v">Biofeedback Array</span></div><div class="cs-detail-line"><span class="k">Surface</span><span class="v">Stealth Nano-Coating</span></div></div><div class="cs-detail-block"><h4>Performance Delta</h4><div class="cs-detail-line"><span class="k">Neural</span><span class="v pos">+38%</span></div><div class="cs-detail-line"><span class="k">Stability</span><span class="v pos">+34%</span></div><div class="cs-detail-line"><span class="k">Thermal</span><span class="v pos">+33%</span></div><div class="cs-detail-line"><span class="k">Score</span><span class="v hi">95 / 100</span></div></div></div></div></div>
+
+<!-- ═══ BOTTOM CTA ═══ -->
+<div class="cs-bottom-cta">
+  <h2>Ready to generate<br><em>your configuration?</em></h2>
+  <p>Six individuals proved it works. Submit your own biometric and behavioral profile and receive a personalized augmentation architecture in under 30 seconds.</p>
+  <a href="diagnostic.html" class="btn-primary" style="text-decoration:none">
+    <span>▶</span> Begin Your Diagnostic
+  </a>
+</div>
+
+<script>
+/* Clock */
+(function(){
+  function tick(){const n=new Date(),e=document.getElementById('sysTime');if(e)e.textContent=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0')+':'+String(n.getSeconds()).padStart(2,'0');}
+  setInterval(tick,1000);tick();
+})();
+
+/* Filter */
+document.querySelectorAll('.cs-filter').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.cs-filter').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    const filter = btn.dataset.filter;
+    document.querySelectorAll('.cs-card').forEach(card => {
+      if (filter === 'all') {
+        card.style.opacity = '1';
+        card.style.pointerEvents = '';
+      } else {
+        const tags = card.dataset.tags || '';
+        const match = tags.includes(filter);
+        card.style.opacity = match ? '1' : '0.25';
+        card.style.pointerEvents = match ? '' : 'none';
+      }
+    });
+  });
+});
+
+/* Expand / collapse */
+function toggleExpand(id, card) {
+  const panel = document.getElementById(id);
+  const isOpen = panel.classList.contains('open');
+  // Close all
+  document.querySelectorAll('.cs-expanded').forEach(p => p.classList.remove('open'));
+  if (!isOpen) panel.classList.add('open');
+}
+
+function closeExpand(id) {
+  document.getElementById(id).classList.remove('open');
+}
+
+/* Animate cards on scroll */
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      e.target.style.opacity = '1';
+      e.target.style.transform = 'translateY(0)';
+    }
+  });
+}, { threshold: 0.08 });
+
+document.querySelectorAll('.cs-card').forEach((card, i) => {
+  card.style.opacity = '0';
+  card.style.transform = 'translateY(20px)';
+  card.style.transition = `opacity 0.5s ease ${i * 0.08}s, transform 0.5s ease ${i * 0.08}s`;
+  observer.observe(card);
+});
+</script>
+</body>
+</html>
