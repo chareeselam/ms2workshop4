@@ -1,159 +1,319 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Augment Studio — Prosthetic Configurator</title>
-    <link rel="stylesheet" href="style.css" />
-  </head>
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>A.A.S — Adaptive Augmentation System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
 
-  <body class="cyborg">
-    <div class="bg" aria-hidden="true"></div>
+<div class="bg-grid" aria-hidden="true"></div>
 
-    <header class="topbar">
-      <div class="brand">
-        <div class="mark" aria-hidden="true"></div>
-        <div class="brandText">
-          <h1>Augment Studio</h1>
-          <p>Configure assistive tech as function + identity. Export a spec card.</p>
-        </div>
-      </div>
+<!-- NAV -->
+<header class="topbar">
+  <div class="topbar-logo">
+    <div class="mark"></div>
+    A.A.S
+  </div>
+  <div class="topbar-status">
+    <span class="status-dot"></span>
+    SYSTEM ONLINE
+    <span style="color:var(--dim)">|</span>
+    <span id="sysTime">--:--:--</span>
+  </div>
+  <nav class="topbar-nav">
+    <button class="nav-btn active" onclick="scrollTo('#hero')">Overview</button>
+    <button class="nav-btn" onclick="scrollTo('#diagnostic')">Diagnostic</button>
+    <button class="nav-btn" onclick="scrollTo('#results')">Results</button>
+  </nav>
+</header>
 
-      <div class="actions">
-        <button id="randomize" class="btn">Randomize</button>
-        <button id="save" class="btn">Save</button>
-        <button id="export" class="btn primary">Export PNG</button>
-      </div>
-    </header>
+<!-- ═══════════════ HERO ═══════════════ -->
+<section id="hero">
+  <div class="hero-eyebrow">
+    <span>◎</span>
+    ADAPTIVE AUGMENTATION SYSTEM v2.4
+  </div>
+  <h1 class="hero-h1">Designing the next<br>interface: <em>Your Body.</em></h1>
+  <p class="hero-sub">
+    Submit your behavioral and biometric profile. Our AI engine synthesizes a personalized augmentation architecture — optimizing for your physiology, environment, and goals.
+  </p>
+  <div class="hero-cta">
+    <button class="btn-primary" onclick="document.getElementById('diagnostic').scrollIntoView({behavior:'smooth'})">
+      <span>▶</span> Begin Diagnostic
+    </button>
+    <button class="btn-ghost">
+      View Case Studies →
+    </button>
+  </div>
 
-    <main class="shell">
-      <section class="panel creator">
-        <h2>Configurator</h2>
+  <div class="hero-metrics">
+    <div class="metric-card">
+      <div class="label">AVG NEURAL LATENCY</div>
+      <div class="value" id="heroM1">—</div>
+      <div class="delta">—</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">STABILITY INDEX</div>
+      <div class="value" id="heroM2">—</div>
+      <div class="delta">—</div>
+    </div>
+    <div class="metric-card">
+      <div class="label">AUGMENT SCORE</div>
+      <div class="value" id="heroM3">—</div>
+      <div class="delta">Awaiting input</div>
+    </div>
+  </div>
 
-        <div class="field">
-          <label for="name">Build name</label>
-          <input id="name" type="text" placeholder="e.g., Atlas Mk.II" maxlength="22" />
-        </div>
+  <div class="hero-scroll-hint">
+    <div class="scroll-line"></div>
+    SCROLL TO BEGIN
+  </div>
+</section>
 
-        <div class="grid2">
+<!-- ═══════════════ DIAGNOSTIC ═══════════════ -->
+<section id="diagnostic">
+  <div class="section-label">02 — Input Diagnostic</div>
+
+  <div class="diag-grid">
+    <!-- Input form -->
+    <div class="input-panel">
+      <div class="input-group">
+        <div class="group-title">01 — Sleep &amp; Recovery</div>
+        <div class="form-grid">
           <div class="field">
-            <label for="module">Module</label>
-            <select id="module">
-              <option value="arm" selected>Arm</option>
-              <option value="hand">Hand</option>
-              <option value="leg">Leg</option>
-              <option value="foot">Foot</option>
-              <option value="eye">Ocular</option>
-              <option value="spine">Spine</option>
+            <div class="slider-row">
+              <label>Sleep Hours/Night</label>
+              <span class="slider-val" id="sleepHoursVal">7h</span>
+            </div>
+            <input type="range" id="sleepHours" min="3" max="10" step="0.5" value="7">
+          </div>
+          <div class="field">
+            <label>Sleep Quality</label>
+            <select id="sleepQuality">
+              <option value="poor">Poor — Fragmented</option>
+              <option value="fair">Fair — Average</option>
+              <option value="good" selected>Good — Consistent</option>
+              <option value="excellent">Excellent — Deep</option>
             </select>
           </div>
+        </div>
+      </div>
 
+      <div class="input-group">
+        <div class="group-title">02 — Behavioral Profile</div>
+        <div class="form-grid">
           <div class="field">
-            <label for="attachment">Attachment</label>
-            <select id="attachment">
+            <label>Stress Level</label>
+            <select id="stressLevel">
+              <option value="low">Low — Minimal</option>
+              <option value="medium" selected>Medium — Manageable</option>
+              <option value="high">High — Persistent</option>
+              <option value="extreme">Extreme — Chronic</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Work Type</label>
+            <select id="workType">
+              <option value="creative">Creative / Design</option>
+              <option value="analytical" selected>Analytical / Technical</option>
+              <option value="physical">Physical / Manual</option>
+              <option value="social">Social / Leadership</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Activity Level</label>
+            <select id="activityLevel">
+              <option value="sedentary">Sedentary</option>
+              <option value="moderate" selected>Moderate</option>
+              <option value="active">Active</option>
+              <option value="athlete">Athlete</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Injury History</label>
+            <select id="injuryHistory">
               <option value="none" selected>None</option>
-              <option value="neural_link">Neural Link Port</option>
-              <option value="bio_sensor">Biofeedback Sensor Array</option>
-              <option value="env_sensor">Environmental Sensor Cluster</option>
-              <option value="power_core">Adaptive Power Core</option>
-              <option value="sleeve">Soft Sleeve</option>
-              <option value="led_ring">LED Ring</option>
-              <option value="carbon_guard">Carbon Guard</option>
-              <option value="tool_mount">Tool Mount</option>
-              <option value="armor_plate">Armor Plate</option>
-            </select>
-            <div id="attachmentHint" class="subhint"></div>
-          </div>
-
-          <div class="field">
-            <label for="colorway">Colorway</label>
-            <select id="colorway">
-              <option value="silver" selected>Silver</option>
-              <option value="black">Black</option>
-              <option value="blue">Blue</option>
-              <option value="pink">Pink</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label for="accentColor">Accent</label>
-            <input id="accentColor" type="color" value="#3a7bd5" />
-          </div>
-
-          <div class="field">
-            <label for="uiStyle">Overlay style</label>
-            <select id="uiStyle">
-              <option value="reticle" selected>Reticle</option>
-              <option value="diagnostic">Diagnostic</option>
-              <option value="waveform">Waveform</option>
-              <option value="minimal">Minimal</option>
-            </select>
-          </div>
-
-          <div class="field">
-            <label for="finish">Finish</label>
-            <select id="finish">
-              <option value="ceramic" selected>Ceramic</option>
-              <option value="titanium">Titanium</option>
-              <option value="carbon">Carbon</option>
-              <option value="polymer">Polymer</option>
+              <option value="upper">Upper Body</option>
+              <option value="lower">Lower Body</option>
+              <option value="spine">Spinal</option>
+              <option value="chronic">Chronic/Multiple</option>
             </select>
           </div>
         </div>
+      </div>
 
-        <div class="divider"></div>
-
-        <h2>Tuning</h2>
-
-        <div class="field">
-          <div class="row">
-            <label for="stability">Stability ↔ Overclock</label>
-            <span class="chip" id="stabilityLabel">Balanced</span>
+      <div class="input-group">
+        <div class="group-title">03 — Environment</div>
+        <div class="form-grid">
+          <div class="field">
+            <label>Climate</label>
+            <select id="climate">
+              <option value="cold">Cold / Arctic</option>
+              <option value="temperate" selected>Temperate</option>
+              <option value="hot">Hot / Arid</option>
+              <option value="humid">Hot &amp; Humid</option>
+              <option value="variable">Variable / Mixed</option>
+            </select>
           </div>
-          <input id="stability" type="range" min="0" max="100" value="55" />
-        </div>
-
-        <div class="field">
-          <div class="row">
-            <label for="signal">Stealth ↔ Signal</label>
-            <span class="chip" id="signalLabel">Low signal</span>
-          </div>
-          <input id="signal" type="range" min="0" max="100" value="35" />
-        </div>
-
-        <div class="field">
-          <div class="row">
-            <label for="comfort">Comfort ↔ Force</label>
-            <span class="chip" id="comfortLabel">Comfort</span>
-          </div>
-          <input id="comfort" type="range" min="0" max="100" value="45" />
-        </div>
-
-        <!-- <button id="spec" class="btn wide">Generate spec sheet</button> -->
-
-      </section>
-
-      <section class="panel stage">
-        <div class="stageHeader">
-          <div>
-            <h2>Preview</h2>
-            <p class="muted">Live schematic + HUD. Click to pulse.</p>
-          </div>
-          <div class="mini">
-            <span class="badge" id="badgeName">Unnamed</span>
-            <span class="badge" id="badgeMode">Balanced</span>
+          <div class="field">
+            <label>Primary Environment</label>
+            <select id="environment">
+              <option value="urban" selected>Urban / Indoor</option>
+              <option value="field">Field / Outdoor</option>
+              <option value="industrial">Industrial</option>
+              <option value="remote">Remote / Wilderness</option>
+            </select>
           </div>
         </div>
+      </div>
 
-        <div class="previewWrap">
-          <div id="toast" class="toast" hidden></div>
-          <div class="frame" id="frame" role="img" aria-label="Prosthetic schematic preview"></div>
+      <div class="input-group">
+        <div class="group-title">04 — Primary Goals</div>
+        <div class="goal-grid" id="goalGrid">
+          <div class="goal-chip active" data-goal="longevity"><span class="chip-icon">♾</span>Longevity</div>
+          <div class="goal-chip" data-goal="strength"><span class="chip-icon">⚡</span>Strength</div>
+          <div class="goal-chip" data-goal="focus"><span class="chip-icon">◎</span>Focus</div>
+          <div class="goal-chip" data-goal="aesthetics"><span class="chip-icon">✦</span>Aesthetics</div>
+          <div class="goal-chip" data-goal="recovery"><span class="chip-icon">↺</span>Recovery</div>
+          <div class="goal-chip" data-goal="endurance"><span class="chip-icon">∞</span>Endurance</div>
+          <div class="goal-chip" data-goal="stealth"><span class="chip-icon">◈</span>Stealth</div>
+          <div class="goal-chip" data-goal="sensory"><span class="chip-icon">◉</span>Sensory+</div>
         </div>
+      </div>
 
-        <div class="hint">Export creates a PNG you can drop into your case study.</div>
-      </section>
-    </main>
+      <button class="run-btn" id="runDiagBtn">
+        <span>RUN DIAGNOSTIC — GENERATE AUGMENTATION PROFILE</span>
+      </button>
+    </div>
 
-    <script src="script.js"></script>
-  </body>
+    <!-- Live side panel -->
+    <div class="live-panel">
+      <div class="live-card" id="liveCard">
+        <div class="live-card-title">Live Input State</div>
+        <div class="live-item"><span class="k">Sleep</span><span class="v hi" id="lv-sleep">7h / Good</span></div>
+        <div class="live-item"><span class="k">Stress</span><span class="v" id="lv-stress">Medium</span></div>
+        <div class="live-item"><span class="k">Work</span><span class="v" id="lv-work">Analytical</span></div>
+        <div class="live-item"><span class="k">Injury</span><span class="v" id="lv-injury">None</span></div>
+        <div class="live-item"><span class="k">Climate</span><span class="v" id="lv-climate">Temperate</span></div>
+        <div class="live-item"><span class="k">Goals</span><span class="v hi" id="lv-goals">Longevity</span></div>
+        <div class="live-item"><span class="k">Risk Index</span><span class="v hi" id="lv-risk">—</span></div>
+        <div class="live-item"><span class="k">Profile Score</span><span class="v" id="lv-score">—</span></div>
+      </div>
+
+      <div class="processing-state" id="processingState">
+        <div class="live-card-title" style="margin:0 0 8px">ANALYZING PROFILE…</div>
+        <div class="proc-row" id="prow-0"><div class="proc-indicator"></div>Scanning behavioral patterns</div>
+        <div class="proc-row" id="prow-1"><div class="proc-indicator"></div>Evaluating injury profile</div>
+        <div class="proc-row" id="prow-2"><div class="proc-indicator"></div>Simulating structural reinforcement</div>
+        <div class="proc-row" id="prow-3"><div class="proc-indicator"></div>Calibrating neural interface</div>
+        <div class="proc-row" id="prow-4"><div class="proc-indicator"></div>Optimizing material selection</div>
+        <div class="proc-row" id="prow-5"><div class="proc-indicator"></div>Rendering augmentation schema</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ RESULTS ═══════════════ -->
+<section id="results">
+  <div class="section-label">03 — Augmentation Profile</div>
+
+  <div class="results-grid">
+    <!-- Left: Preview -->
+    <div class="preview-panel">
+      <div class="preview-header">
+        <div class="preview-title">Configuration: <span id="configName">—</span></div>
+        <div class="preview-badges">
+          <span class="badge hi" id="resultBadge1">—</span>
+          <span class="badge" id="resultBadge2">—</span>
+        </div>
+      </div>
+
+      <div class="preview-frame" id="previewFrame">
+        <div class="preview-corner tl"></div>
+        <div class="preview-corner tr"></div>
+        <div class="preview-corner bl"></div>
+        <div class="preview-corner br"></div>
+        <div class="preview-svg-wrap" id="svgWrap">
+          <!-- SVG injected by JS -->
+        </div>
+      </div>
+
+      <div class="stats-row" id="statsRow">
+        <div class="stat-item">
+          <div class="s-label">Neural Latency</div>
+          <div class="s-val pos" id="stat-neural">—</div>
+          <div class="stat-bar"><div class="stat-bar-fill green" id="bar-neural" style="width:0%"></div></div>
+        </div>
+        <div class="stat-item">
+          <div class="s-label">Structural Stability</div>
+          <div class="s-val" id="stat-stab">—</div>
+          <div class="stat-bar"><div class="stat-bar-fill" id="bar-stab" style="width:0%"></div></div>
+        </div>
+        <div class="stat-item">
+          <div class="s-label">Thermal Efficiency</div>
+          <div class="s-val" id="stat-thermal">—</div>
+          <div class="stat-bar"><div class="stat-bar-fill" id="bar-thermal" style="width:0%"></div></div>
+        </div>
+        <div class="stat-item">
+          <div class="s-label">Augment Score</div>
+          <div class="s-val" id="stat-score">—</div>
+          <div class="stat-bar"><div class="stat-bar-fill" id="bar-score" style="width:0%"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: Analysis -->
+    <div class="analysis-panel">
+      <div class="config-card">
+        <div class="config-card-title">Selected Modules</div>
+        <div id="modulesBreakdown">
+          <!-- injected -->
+        </div>
+      </div>
+
+      <div class="reasoning-card">
+        <div class="reasoning-title">AI Reasoning Log</div>
+        <div id="reasoningLog">
+          <!-- injected -->
+        </div>
+      </div>
+
+      <button class="run-btn" onclick="document.getElementById('override').scrollIntoView({behavior:'smooth'})">
+        <span>ENTER OVERRIDE MODE — MANUAL TUNING</span>
+      </button>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════ OVERRIDE ═══════════════ -->
+<section id="override">
+  <div class="section-label">04 — Override Mode</div>
+
+  <div class="live-card" style="margin-bottom:20px">
+    <div class="live-card-title">Manual Module Overrides — Adjustments will recalculate performance metrics in real time</div>
+    <div class="override-grid" id="overrideGrid">
+      <!-- injected -->
+    </div>
+  </div>
+
+  <div class="stats-row" id="overrideStats" style="max-width:600px">
+    <div class="stat-item">
+      <div class="s-label">Override Score</div>
+      <div class="s-val" id="ov-score">—</div>
+      <div class="stat-bar"><div class="stat-bar-fill" id="ov-bar-score" style="width:0%"></div></div>
+    </div>
+    <div class="stat-item">
+      <div class="s-label">Stability Delta</div>
+      <div class="s-val" id="ov-stab">—</div>
+      <div class="stat-bar"><div class="stat-bar-fill" id="ov-bar-stab" style="width:0%"></div></div>
+    </div>
+  </div>
+</section>
+
+<script src="script.js"></script>
+</body>
 </html>

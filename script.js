@@ -1,904 +1,725 @@
-/* Augment Studio — Cyborg Configurator
-   Module images: assets/modules/{module}.png (silver)
-                  assets/modules/{module}-{colorway}.png (black/blue/pink)
+/* ════════════════════════════════════════════════
+   CLOCK
+════════════════════════════════════════════════ */
+function updateClock() {
+  const n = new Date();
+  document.getElementById('sysTime').textContent =
+    String(n.getHours()).padStart(2,'0') + ':' +
+    String(n.getMinutes()).padStart(2,'0') + ':' +
+    String(n.getSeconds()).padStart(2,'0');
+}
+setInterval(updateClock, 1000); updateClock();
 
-   Requires in index.html:
-   - <select id="attachment"> options matching ATTACHMENTS keys
-   - <div id="attachmentHint"></div>
-*/
+/* ════════════════════════════════════════════════
+   GOALS
+════════════════════════════════════════════════ */
+const selectedGoals = new Set(['longevity']);
+document.getElementById('goalGrid').addEventListener('click', e => {
+  const chip = e.target.closest('.goal-chip');
+  if (!chip) return;
+  const g = chip.dataset.goal;
+  if (selectedGoals.has(g)) {
+    if (selectedGoals.size > 1) { selectedGoals.delete(g); chip.classList.remove('active'); }
+  } else {
+    selectedGoals.add(g); chip.classList.add('active');
+  }
+  updateLivePanel();
+});
 
-const $ = (id) => document.getElementById(id);
-
-const ui = {
-  name: $("name"),
-  module: $("module"),
-  attachment: $("attachment"),
-  attachmentHint: $("attachmentHint"),
-  colorway: $("colorway"),
-  accentColor: $("accentColor"),
-  uiStyle: $("uiStyle"),
-  finish: $("finish"),
-
-  stability: $("stability"),
-  signal: $("signal"),
-  comfort: $("comfort"),
-
-  stabilityLabel: $("stabilityLabel"),
-  signalLabel: $("signalLabel"),
-  comfortLabel: $("comfortLabel"),
-
-  specBtn: $("spec"),
-  frame: $("frame"),
-  toast: $("toast"),
-  badgeName: $("badgeName"),
-  badgeMode: $("badgeMode"),
-
-  randomize: $("randomize"),
-  save: $("save"),
-  exportBtn: $("export"),
-};
-
-const STORAGE_KEY = "augment_studio.v2";
-let state = loadState() ?? defaultState();
-
-/* =========================================================
-   Attachments (system logic)
-   ========================================================= */
-
-const ATTACHMENTS = {
-  none: {
-    label: "None",
-    allowed: ["arm", "hand", "leg", "foot", "eye", "spine"],
-    mods: { stability: 0, signal: 0, comfort: 0, thermal: 0, glow: 1 },
-    hint: "No attachment modifiers.",
-  },
-
-  // “system” attachments
-  neural_link: {
-    label: "Neural Link Port",
-    allowed: ["eye", "spine", "arm"],
-    mods: { stability: +10, signal: +12, comfort: -4, thermal: +2, glow: 1.15 },
-    hint: "+Stability, +Signal. Neural sync enabled.",
-  },
-
-  bio_sensor: {
-    label: "Biofeedback Sensor Array",
-    allowed: ["arm", "leg", "foot", "spine"],
-    mods: { stability: +6, signal: +8, comfort: +6, thermal: 0, glow: 1.10 },
-    hint: "+Comfort, +Signal. Biometrics feed available in Diagnostic.",
-  },
-
-  env_sensor: {
-    label: "Environmental Sensor Cluster",
-    allowed: ["arm", "hand", "spine", "eye"],
-    mods: { stability: +4, signal: +14, comfort: -2, thermal: 0, glow: 1.20 },
-    hint: "+Signal. Environmental telemetry visible in overlay.",
-  },
-
-  power_core: {
-    label: "Adaptive Power Core",
-    allowed: ["arm", "hand", "leg", "foot", "spine"],
-    mods: { stability: +8, signal: -4, comfort: +2, thermal: -6, glow: 1.05 },
-    hint: "+Stability. Thermal mitigation enabled (quieter signal).",
-  },
-
-  sleeve: {
-    label: "Soft Sleeve",
-    allowed: ["arm", "hand", "leg", "foot"],
-    mods: { stability: +4, signal: -6, comfort: +14, thermal: 0, glow: 0.85 },
-    hint: "+Comfort. Stealth profile (reduced glow).",
-  },
-
-  // legacy visuals (now with meaningful modifiers)
-  led_ring: {
-    label: "LED Ring",
-    allowed: ["arm", "hand", "eye"],
-    mods: { stability: -2, signal: +16, comfort: -2, thermal: +2, glow: 1.35 },
-    hint: "High visibility: +Signal. Slight stability tradeoff.",
-  },
-
-  carbon_guard: {
-    label: "Carbon Guard",
-    allowed: ["arm", "leg", "foot"],
-    mods: { stability: +14, signal: -2, comfort: -4, thermal: -2, glow: 0.95 },
-    hint: "Protective: +Stability. Slight comfort tradeoff.",
-  },
-
-  tool_mount: {
-    label: "Tool Mount",
-    allowed: ["arm", "hand"],
-    mods: { stability: +2, signal: 0, comfort: -10, thermal: +4, glow: 1.00 },
-    hint: "Utility mount: load bias (comfort tradeoff).",
-  },
-
-  armor_plate: {
-    label: "Armor Plate",
-    allowed: ["arm", "leg", "foot", "spine"],
-    mods: { stability: +10, signal: -2, comfort: -6, thermal: -3, glow: 0.95 },
-    hint: "Shielding: stability up. Thermal risk down.",
-  },
-};
-
-function clamp01(n) { return Math.max(0, Math.min(1, n)); }
-function clamp100(n) { return Math.max(0, Math.min(100, n)); }
-function pickOne(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
-function randInt(a, b) { return Math.floor(a + Math.random() * (b - a + 1)); }
-function cap(s) { return (s || "").replace(/\b\w/g, c => c.toUpperCase()); }
-
-function deriveState(s) {
-  const a = ATTACHMENTS[s.attachment] ?? ATTACHMENTS.none;
-  const m = a.mods || {};
-
-  const ds = { ...s };
-  ds.stability = clamp100(ds.stability + (m.stability ?? 0));
-  ds.signal = clamp100(ds.signal + (m.signal ?? 0));
-  ds.comfort = clamp100(ds.comfort + (m.comfort ?? 0));
-
-  ds._thermalAdj = m.thermal ?? 0;
-  ds._glowMult = m.glow ?? 1;
-
-  ds._attachmentLabel = a.label;
-  ds._attachmentHint = a.hint;
-
-  return ds;
+/* ════════════════════════════════════════════════
+   LIVE PANEL UPDATES
+════════════════════════════════════════════════ */
+function getLiveInputs() {
+  return {
+    sleepHours: parseFloat(document.getElementById('sleepHours').value),
+    sleepQuality: document.getElementById('sleepQuality').value,
+    stress: document.getElementById('stressLevel').value,
+    work: document.getElementById('workType').value,
+    activity: document.getElementById('activityLevel').value,
+    injury: document.getElementById('injuryHistory').value,
+    climate: document.getElementById('climate').value,
+    environment: document.getElementById('environment').value,
+    goals: Array.from(selectedGoals),
+  };
 }
 
-function isAttachmentAllowed(module, attachmentKey) {
-  const a = ATTACHMENTS[attachmentKey] ?? ATTACHMENTS.none;
-  return a.allowed.includes(module);
+function computeRiskIndex(inp) {
+  let risk = 0;
+  if (inp.stress === 'high') risk += 2;
+  if (inp.stress === 'extreme') risk += 4;
+  if (inp.injury === 'chronic') risk += 3;
+  if (inp.injury !== 'none') risk += 1;
+  if (inp.sleepHours < 6) risk += 2;
+  if (inp.sleepQuality === 'poor') risk += 2;
+  if (inp.activity === 'athlete' && inp.injury !== 'none') risk += 2;
+  return Math.min(risk, 10);
 }
 
-function refreshAttachmentOptions() {
-  if (!ui.attachment) return;
-  const module = ui.module.value;
+function computeProfileScore(inp) {
+  let s = 50;
+  if (inp.sleepQuality === 'excellent') s += 10;
+  if (inp.sleepQuality === 'good') s += 6;
+  if (inp.sleepQuality === 'poor') s -= 8;
+  if (inp.stress === 'low') s += 8;
+  if (inp.stress === 'extreme') s -= 12;
+  if (inp.activity === 'athlete') s += 10;
+  if (inp.activity === 'active') s += 6;
+  if (inp.activity === 'sedentary') s -= 5;
+  if (inp.injury === 'none') s += 8;
+  if (inp.injury === 'chronic') s -= 10;
+  s += selectedGoals.size * 2;
+  return Math.max(10, Math.min(100, s));
+}
 
-  Array.from(ui.attachment.options).forEach(opt => {
-    const ok = isAttachmentAllowed(module, opt.value);
-    opt.disabled = !ok;
-    opt.hidden = !ok;
-  });
+function updateLivePanel() {
+  const inp = getLiveInputs();
+  const risk = computeRiskIndex(inp);
+  const score = computeProfileScore(inp);
 
-  // snap invalid selection to none
-  if (!isAttachmentAllowed(module, ui.attachment.value)) {
-    ui.attachment.value = "none";
-    patchState({ attachment: "none" });
+  document.getElementById('lv-sleep').textContent = inp.sleepHours + 'h / ' + cap(inp.sleepQuality);
+  document.getElementById('lv-stress').textContent = cap(inp.stress);
+  document.getElementById('lv-work').textContent = cap(inp.work);
+  document.getElementById('lv-injury').textContent = cap(inp.injury);
+  document.getElementById('lv-climate').textContent = cap(inp.climate);
+  document.getElementById('lv-goals').textContent = inp.goals.map(cap).join(', ');
+  document.getElementById('lv-risk').textContent = risk + '/10';
+  document.getElementById('lv-score').textContent = score + '/100';
+
+  // hero metrics
+  const nl = Math.round(12 - score * 0.08);
+  document.getElementById('heroM1').textContent = nl + 'ms';
+  document.getElementById('heroM2').textContent = Math.round(score * 0.9) + '%';
+  document.getElementById('heroM3').textContent = score;
+  document.querySelector('#hero .metric-card:nth-child(3) .delta').textContent =
+    selectedGoals.size + ' goal' + (selectedGoals.size > 1 ? 's' : '') + ' active';
+}
+
+document.getElementById('sleepHours').addEventListener('input', e => {
+  document.getElementById('sleepHoursVal').textContent = e.target.value + 'h';
+  updateLivePanel();
+});
+['sleepQuality','stressLevel','workType','activityLevel','injuryHistory','climate','environment']
+  .forEach(id => document.getElementById(id)?.addEventListener('change', updateLivePanel));
+
+updateLivePanel();
+
+/* ════════════════════════════════════════════════
+   AI LOGIC ENGINE
+════════════════════════════════════════════════ */
+const MODULES = {
+  /* Neural */
+  neural_stabilizer: {
+    name: 'Neural Stabilizer Array',
+    color: 'cyan',
+    tag: 'NEURAL',
+    statBonus: { neural: 22, stab: 8, thermal: 5, score: 12 },
+    desc: 'Dampens cortical noise, stabilizes motor signal pathways'
+  },
+  neural_amplifier: {
+    name: 'Neural Amplifier Interface',
+    color: 'cyan',
+    tag: 'NEURAL',
+    statBonus: { neural: 34, stab: -5, thermal: -8, score: 14 },
+    desc: 'Maximizes neural throughput for high-focus operation'
+  },
+  /* Structural */
+  carbon_exo: {
+    name: 'Carbon Exoskeletal Frame',
+    color: 'amber',
+    tag: 'STRUCTURAL',
+    statBonus: { neural: -3, stab: 28, thermal: 12, score: 16 },
+    desc: 'High-tensile carbon weave reinforcement layer'
+  },
+  titanium_joint: {
+    name: 'Titanium Joint Reinforcement',
+    color: 'amber',
+    tag: 'STRUCTURAL',
+    statBonus: { neural: 0, stab: 22, thermal: 8, score: 14 },
+    desc: 'Medical-grade Ti-6Al-4V alloy joint replacement'
+  },
+  /* Thermal */
+  thermal_regulator: {
+    name: 'Adaptive Thermal Regulator',
+    color: 'green',
+    tag: 'THERMAL',
+    statBonus: { neural: 4, stab: 6, thermal: 28, score: 10 },
+    desc: 'Phase-change thermal equilibrium across all climates'
+  },
+  cooling_mesh: {
+    name: 'Active Cooling Mesh',
+    color: 'green',
+    tag: 'THERMAL',
+    statBonus: { neural: 8, stab: 4, thermal: 22, score: 8 },
+    desc: 'Microfluidic heat extraction for high-load environments'
+  },
+  /* Power */
+  bio_core: {
+    name: 'Longevity Bio-Core',
+    color: 'green',
+    tag: 'POWER',
+    statBonus: { neural: 10, stab: 10, thermal: 10, score: 18 },
+    desc: 'Energy-efficient symbiotic power generation system'
+  },
+  adaptive_core: {
+    name: 'Adaptive Power Cell',
+    color: 'cyan',
+    tag: 'POWER',
+    statBonus: { neural: 6, stab: 14, thermal: 6, score: 14 },
+    desc: 'Variable output power management with load prediction'
+  },
+  /* Sensors */
+  bio_sensor_array: {
+    name: 'Biofeedback Sensor Array',
+    color: 'cyan',
+    tag: 'SENSOR',
+    statBonus: { neural: 16, stab: 4, thermal: 2, score: 10 },
+    desc: 'Real-time biometric monitoring and adaptive response'
+  },
+  env_sensor_cluster: {
+    name: 'Environmental Sensor Cluster',
+    color: 'amber',
+    tag: 'SENSOR',
+    statBonus: { neural: 10, stab: 0, thermal: 14, score: 8 },
+    desc: 'Ambient condition analysis for proactive adaptation'
+  },
+  /* Aesthetic */
+  stealth_coating: {
+    name: 'Stealth Nano-Coating',
+    color: 'amber',
+    tag: 'SURFACE',
+    statBonus: { neural: 0, stab: 8, thermal: 4, score: 6 },
+    desc: 'Radar-absorptive surface treatment, minimal EM signature'
+  },
+  bioluminescent_shell: {
+    name: 'Bioluminescent Shell',
+    color: 'cyan',
+    tag: 'SURFACE',
+    statBonus: { neural: 6, stab: 2, thermal: 0, score: 8 },
+    desc: 'Programmable optical layer with identity customization'
+  },
+};
+
+function runAIEngine(inp) {
+  const goals = inp.goals;
+  const selected = [];
+  const reasoning = [];
+
+  /* 1. Neural selection */
+  if (inp.stress === 'extreme' || inp.stress === 'high') {
+    selected.push('neural_stabilizer');
+    reasoning.push('Elevated stress profile → Neural Stabilizer Array selected to regulate cortical hyperactivation and reduce signal distortion');
+  } else if (goals.includes('focus') || inp.work === 'analytical') {
+    selected.push('neural_amplifier');
+    reasoning.push('Focus goal + analytical workload → Neural Amplifier Interface selected to maximize throughput for cognitive-intensive tasks');
+  } else {
+    selected.push('neural_stabilizer');
+    reasoning.push('Baseline neural management → Neural Stabilizer Array deployed for general-purpose cortical regulation');
   }
 
-  updateAttachmentHint();
-}
+  /* 2. Structural selection */
+  if (inp.injury === 'lower' || inp.injury === 'chronic') {
+    selected.push('titanium_joint');
+    reasoning.push('Lower body injury history detected → Titanium Joint Reinforcement selected to redistribute load and prevent re-injury cycles');
+  } else if (goals.includes('strength') || inp.activity === 'athlete') {
+    selected.push('carbon_exo');
+    reasoning.push('Strength goal + high activity level → Carbon Exoskeletal Frame selected for maximum structural amplification');
+  } else if (inp.injury === 'upper' || inp.injury === 'spine') {
+    selected.push('titanium_joint');
+    reasoning.push('Upper/spinal injury history → Titanium Joint Reinforcement selected for controlled load management');
+  } else {
+    selected.push('carbon_exo');
+    reasoning.push('Standard structural augmentation → Carbon Exoskeletal Frame selected for rigidity and endurance');
+  }
 
-function updateAttachmentHint() {
-  if (!ui.attachmentHint) return;
+  /* 3. Thermal selection */
+  if (inp.climate === 'cold') {
+    selected.push('thermal_regulator');
+    reasoning.push('Cold climate detected → Adaptive Thermal Regulator selected; phase-change system maintains optimal limb temperature');
+  } else if (inp.climate === 'hot' || inp.climate === 'humid') {
+    selected.push('cooling_mesh');
+    reasoning.push('High-temperature environment → Active Cooling Mesh selected; microfluidic extraction prevents thermal overload');
+  } else if (inp.climate === 'variable') {
+    selected.push('thermal_regulator');
+    reasoning.push('Variable climate profile → Adaptive Thermal Regulator selected for full-spectrum thermal management');
+  } else {
+    if (goals.includes('endurance')) {
+      selected.push('cooling_mesh');
+      reasoning.push('Endurance goal in temperate climate → Active Cooling Mesh selected to sustain output during prolonged exertion');
+    } else {
+      selected.push('thermal_regulator');
+      reasoning.push('Standard thermal conditions → Adaptive Thermal Regulator deployed as default thermal baseline');
+    }
+  }
 
-  const a = ATTACHMENTS[ui.attachment.value] ?? ATTACHMENTS.none;
-  const m = a.mods || {};
+  /* 4. Power selection */
+  if (goals.includes('longevity') || (inp.sleepQuality === 'poor' && inp.sleepHours < 6)) {
+    selected.push('bio_core');
+    reasoning.push('Longevity goal active → Longevity Bio-Core selected; symbiotic energy generation reduces draw on organic systems');
+  } else {
+    selected.push('adaptive_core');
+    reasoning.push('Dynamic workload detected → Adaptive Power Cell selected; load-predictive output prevents brownout under stress spikes');
+  }
 
-  const parts = [
-    m.stability ? `${m.stability > 0 ? "+" : ""}${m.stability} Stability` : null,
-    m.signal ? `${m.signal > 0 ? "+" : ""}${m.signal} Signal` : null,
-    m.comfort ? `${m.comfort > 0 ? "+" : ""}${m.comfort} Comfort` : null,
-  ].filter(Boolean);
+  /* 5. Sensor selection */
+  if (goals.includes('recovery') || inp.activity === 'athlete') {
+    selected.push('bio_sensor_array');
+    reasoning.push('Recovery-focus + high activity → Biofeedback Sensor Array selected for continuous recovery monitoring and adaptation');
+  } else if (inp.environment === 'field' || inp.environment === 'remote' || inp.environment === 'industrial') {
+    selected.push('env_sensor_cluster');
+    reasoning.push('Field/industrial environment → Environmental Sensor Cluster selected for ambient hazard detection');
+  } else {
+    selected.push('bio_sensor_array');
+    reasoning.push('Urban operation profile → Biofeedback Sensor Array deployed for real-time biometric regulation');
+  }
 
-  ui.attachmentHint.textContent =
-    parts.length ? `${a.hint} (${parts.join(" • ")})` : a.hint;
-}
+  /* 6. Surface / aesthetic */
+  if (goals.includes('stealth') || inp.environment === 'industrial' || inp.environment === 'field') {
+    selected.push('stealth_coating');
+    reasoning.push('Stealth profile active → Nano-Coating applied; EM signature reduced to minimal detectable threshold');
+  } else if (goals.includes('aesthetics') || goals.includes('sensory')) {
+    selected.push('bioluminescent_shell');
+    reasoning.push('Aesthetic/sensory enhancement goal → Bioluminescent Shell applied; programmable identity layer enables visual customization');
+  } else {
+    selected.push('stealth_coating');
+    reasoning.push('Default surface treatment → Stealth Nano-Coating applied for passive EM signature management');
+  }
 
-/* =========================================================
-   Render scheduling
-   ========================================================= */
-
-let renderQueued = false;
-
-function requestRender() {
-  if (renderQueued) return;
-  renderQueued = true;
-  requestAnimationFrame(() => {
-    renderQueued = false;
-    render();
+  /* Compute stats */
+  const stats = { neural: 0, stab: 0, thermal: 0, score: 0 };
+  selected.forEach(key => {
+    const m = MODULES[key];
+    stats.neural += m.statBonus.neural;
+    stats.stab += m.statBonus.stab;
+    stats.thermal += m.statBonus.thermal;
+    stats.score += m.statBonus.score;
   });
-}
 
-function patchState(patch) {
-  state = { ...state, ...patch };
-  requestRender();
-}
+  /* Base profile adjustments */
+  const ps = computeProfileScore(inp);
+  const riskPenalty = computeRiskIndex(inp) * 2;
+  stats.score = Math.round(Math.min(100, stats.score + ps * 0.3 - riskPenalty));
+  stats.neural = Math.max(0, Math.min(100, stats.neural));
+  stats.stab = Math.max(0, Math.min(100, stats.stab));
+  stats.thermal = Math.max(0, Math.min(100, stats.thermal));
 
-/* =========================================================
-   Idle animation (single continuous loop — no jitter)
-   ========================================================= */
+  /* Generate build name */
+  const prefixes = { longevity: 'VITA', strength: 'TITAN', focus: 'APEX', aesthetics: 'AURORA', recovery: 'REGEN', endurance: 'ARES', stealth: 'SHADE', sensory: 'VELA' };
+  const primaryGoal = goals[0] || 'longevity';
+  const prefix = prefixes[primaryGoal] || 'AAS';
+  const suffix = String(Math.floor(Math.random()*900)+100);
+  const buildName = prefix + '-' + suffix;
 
-let idleRunning = false;
-let idleRAF = 0;
-let idleT = Math.random() * 1000;
-
-let idleSpeed = 1.0;
-let idleWobble = 3.0;
-let idleRotAmp = 0.5;
-
-function startIdleLoopIfNeeded() {
-  if (!ui._root) return;
-  if (idleRunning) return;
-
-  idleRunning = true;
-
-  const tick = () => {
-    idleT += 0.016 * idleSpeed;
-    const y = Math.sin(idleT) * idleWobble;
-    const r = Math.sin(idleT * 0.75) * idleRotAmp;
-
-    ui._root.style.transform =
-      `translateY(${y.toFixed(2)}px) rotate(${r.toFixed(3)}deg)`;
-
-    idleRAF = requestAnimationFrame(tick);
+  /* Accent color */
+  const accentMap = {
+    longevity: '#3df0ff', strength: '#ffc14a', focus: '#3df0ff',
+    aesthetics: '#d97aff', recovery: '#3dffb2', endurance: '#ff8a4a',
+    stealth: '#8899bb', sensory: '#d97aff'
   };
+  const accent = accentMap[primaryGoal] || '#3df0ff';
 
-  idleRAF = requestAnimationFrame(tick);
+  return { selected, reasoning, stats, buildName, accent };
 }
 
-function updateIdleParams(ds) {
-  const over = clamp01(ds.stability / 100);
-  const sig = clamp01(ds.signal / 100);
+/* ════════════════════════════════════════════════
+   PROCESSING ANIMATION
+════════════════════════════════════════════════ */
+function runProcessingAnimation(cb) {
+  const ps = document.getElementById('processingState');
+  ps.classList.add('visible');
+  const rows = document.querySelectorAll('[id^="prow-"]');
 
-  // calmer baseline than before
-  idleSpeed = 0.55 + over * 1.1;
-  idleWobble = 2.2 + sig * 2.8;
-  idleRotAmp = 0.22 + over * 0.55;
+  rows.forEach(r => { r.classList.remove('done','active'); });
 
-  startIdleLoopIfNeeded();
-}
-
-function pulse() {
-  if (!ui._root) return;
-  ui._root.animate(
-    [
-      { transform: ui._root.style.transform || "translateY(0)" },
-      { transform: "translateY(-6px) scale(1.04)" },
-      { transform: ui._root.style.transform || "translateY(0)" }
-    ],
-    { duration: 280, easing: "ease-out" }
-  );
-}
-
-/* =========================================================
-   Init + state
-   ========================================================= */
-
-init();
-
-function init() {
-  hydrateControls(state);
-  mountLayersOnce();
-  refreshAttachmentOptions();
-  requestRender();
-
-  ui.name.addEventListener("input", () => patchState({ name: ui.name.value }));
-
-  ui.module.addEventListener("change", () => {
-    patchState({ module: ui.module.value });
-    refreshAttachmentOptions();
-  });
-
-  ui.attachment.addEventListener("change", () => {
-    patchState({ attachment: ui.attachment.value });
-    updateAttachmentHint();
-  });
-
-  ui.colorway.addEventListener("change", () => patchState({ colorway: ui.colorway.value }));
-  ui.accentColor.addEventListener("input", () => patchState({ accentColor: ui.accentColor.value }));
-  ui.uiStyle.addEventListener("change", () => patchState({ uiStyle: ui.uiStyle.value }));
-  ui.finish.addEventListener("change", () => patchState({ finish: ui.finish.value }));
-
-  ui.stability.addEventListener("input", () => patchState({ stability: +ui.stability.value }));
-  ui.signal.addEventListener("input", () => patchState({ signal: +ui.signal.value }));
-  ui.comfort.addEventListener("input", () => patchState({ comfort: +ui.comfort.value }));
-
-  ui.randomize.addEventListener("click", () => {
-    state = randomState();
-    hydrateControls(state);
-    refreshAttachmentOptions();
-    requestRender();
-    toast("New configuration loaded.");
-  });
-
-  ui.save.addEventListener("click", () => {
-    saveState(state);
-    toast("Saved locally.");
-  });
-
-  ui.specBtn.addEventListener("click", () => {
-    const spec = generateSpec(deriveState(state));
-    toast(spec.note);
-  });
-
-  ui.exportBtn.addEventListener("click", exportPNG);
-
-  ui.frame.addEventListener("click", () => {
-    pulse();
-    toast(pickOne(reactions(deriveState(state))));
-  });
-}
-
-function defaultState() {
-  return {
-    name: "",
-    module: "arm",
-    attachment: "none",
-    colorway: "silver",
-    accentColor: "#3a7bd5",
-    uiStyle: "reticle",
-    finish: "ceramic",
-    stability: 55,
-    signal: 35,
-    comfort: 45,
+  let i = 0;
+  const step = () => {
+    if (i > 0) rows[i-1].classList.replace('active','done');
+    if (i < rows.length) {
+      rows[i].classList.add('active');
+      i++;
+      setTimeout(step, 280 + Math.random() * 180);
+    } else {
+      setTimeout(() => {
+        ps.classList.remove('visible');
+        cb();
+      }, 200);
+    }
   };
+  setTimeout(step, 100);
 }
 
-function hydrateControls(s) {
-  ui.name.value = s.name ?? "";
-  ui.module.value = s.module ?? "arm";
-  ui.attachment.value = s.attachment ?? "none";
-  ui.colorway.value = s.colorway ?? "silver";
-  ui.accentColor.value = s.accentColor ?? "#3a7bd5";
-  ui.uiStyle.value = s.uiStyle ?? "reticle";
-  ui.finish.value = s.finish ?? "ceramic";
-  ui.stability.value = String(s.stability ?? 55);
-  ui.signal.value = String(s.signal ?? 35);
-  ui.comfort.value = String(s.comfort ?? 45);
+/* ════════════════════════════════════════════════
+   SVG PREVIEW GENERATOR
+════════════════════════════════════════════════ */
+function generateSVG(modules, accent, inp) {
+  const c = accent;
+  const cDim = c.replace('#','');
+  const isBlue = c === '#3df0ff';
+  const isAmber = c === '#ffc14a';
+
+  // Determine body part from injury/goals
+  let bodyPart = 'arm';
+  if (inp.injury === 'lower') bodyPart = 'leg';
+  if (inp.injury === 'spine') bodyPart = 'spine';
+  if (inp.goals.includes('strength') && inp.activity === 'athlete') bodyPart = 'arm';
+  if (inp.goals.includes('endurance')) bodyPart = 'leg';
+
+  const hasThermal = modules.some(m => MODULES[m]?.tag === 'THERMAL');
+  const hasNeural = modules.some(m => MODULES[m]?.tag === 'NEURAL');
+  const hasStealth = modules.includes('stealth_coating');
+
+  // Build SVG
+  let svg = `<svg viewBox="0 0 480 480" class="aug-svg" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="glow1" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="${c}" stop-opacity="0.3"/>
+      <stop offset="100%" stop-color="${c}" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="bodyGrad" cx="40%" cy="30%" r="60%">
+      <stop offset="0%" stop-color="#1a2030"/>
+      <stop offset="100%" stop-color="#0a0c12"/>
+    </radialGradient>
+    <filter id="glowF">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    <filter id="softGlow">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+  </defs>
+
+  <!-- Background radial -->
+  <circle cx="240" cy="240" r="180" fill="url(#glow1)" opacity="0.5"/>
+`;
+
+  if (bodyPart === 'arm') {
+    svg += renderArm(c, hasThermal, hasNeural, hasStealth, modules);
+  } else if (bodyPart === 'leg') {
+    svg += renderLeg(c, hasThermal, hasNeural, hasStealth, modules);
+  } else {
+    svg += renderArm(c, hasThermal, hasNeural, hasStealth, modules);
+  }
+
+  // HUD overlay
+  svg += renderHUD(c, modules, inp);
+
+  svg += `</svg>`;
+  return svg;
 }
 
-/* =========================================================
-   Labels + tags
-   ========================================================= */
+function renderArm(c, hasThermal, hasNeural, hasStealth, modules) {
+  const segments = [
+    // Upper arm
+    { x:190, y:80, w:100, h:140, rx:20 },
+    // Elbow
+    { x:195, y:215, w:90, h:50, rx:14 },
+    // Lower arm
+    { x:188, y:260, w:104, h:120, rx:18 },
+    // Wrist
+    { x:196, y:375, w:88, h:30, rx:12 },
+    // Hand
+    { x:185, y:400, w:110, h:60, rx:16 },
+  ];
 
-function stabilityTag(v) {
-  if (v < 20) return "Stabilized";
-  if (v < 45) return "Safe";
-  if (v < 65) return "Balanced";
-  if (v < 85) return "Boosted";
-  return "Overclock";
-}
+  const opacity = hasStealth ? 0.75 : 1;
+  let out = `\n  <!-- ARM UNIT -->`;
 
-function signalTag(v) {
-  if (v < 20) return "Stealth";
-  if (v < 45) return "Low signal";
-  if (v < 65) return "Broadcast";
-  if (v < 85) return "Beacon";
-  return "High signal";
-}
+  segments.forEach((s, i) => {
+    out += `\n  <rect x="${s.x}" y="${s.y}" width="${s.w}" height="${s.h}" rx="${s.rx}"
+    fill="url(#bodyGrad)" stroke="${c}" stroke-width="${i === 1 ? 1 : 1.5}" opacity="${opacity}"/>`;
+  });
 
-function comfortTag(v) {
-  if (v < 20) return "Comfort";
-  if (v < 45) return "Gentle";
-  if (v < 65) return "Balanced";
-  if (v < 85) return "Force";
-  return "Max torque";
-}
-
-function modeBadge(s) {
-  return `${stabilityTag(s.stability)} • ${signalTag(s.signal)} • ${comfortTag(s.comfort)}`;
-}
-
-/* =========================================================
-   Mount layers
-   ========================================================= */
-
-function mountLayersOnce() {
-  ui.frame.innerHTML = `
-    <div class="layer-wrap" id="layerRoot">
-      <div class="layer-glow" id="backGlow"></div>
-      <img class="layer" id="moduleImg" alt="Module" draggable="false" />
-      <div class="layer-tint" id="moduleTint"></div>
-      <svg class="layer" id="attachSvg" viewBox="0 0 520 540" xmlns="http://www.w3.org/2000/svg"></svg>
-      <svg class="layer" id="hudSvg" viewBox="0 0 520 540" xmlns="http://www.w3.org/2000/svg"></svg>
-      <div class="layer" id="alertLayer" style="pointer-events:none;"></div>
-    </div>
+  // Panel lines
+  out += `
+  <line x1="210" y1="100" x2="270" y2="100" stroke="${c}" stroke-width="1" opacity="0.3"/>
+  <line x1="200" y1="130" x2="280" y2="130" stroke="${c}" stroke-width="0.5" opacity="0.2"/>
+  <line x1="200" y1="160" x2="280" y2="160" stroke="${c}" stroke-width="0.5" opacity="0.2"/>
+  <line x1="200" y1="280" x2="290" y2="280" stroke="${c}" stroke-width="1" opacity="0.3"/>
+  <line x1="200" y1="310" x2="290" y2="310" stroke="${c}" stroke-width="0.5" opacity="0.2"/>
   `;
 
-  ui._root = $("layerRoot");
-  ui._backGlow = $("backGlow");
-  ui._moduleImg = $("moduleImg");
-  ui._moduleTint = $("moduleTint");
-  ui._attachSvg = $("attachSvg");
-  ui._hudSvg = $("hudSvg");
-  ui._alertLayer = $("alertLayer");
+  // Accent details
+  out += `
+  <rect x="210" y="94" width="60" height="6" rx="3" fill="${c}" opacity="0.6"/>
+  <rect x="210" y="275" width="60" height="4" rx="2" fill="${c}" opacity="0.5"/>
+  `;
 
-  ui._moduleImg.ondragstart = () => false;
+  // Port circles (structural detail)
+  [[195,145],[285,145],[195,170],[285,170]].forEach(([x,y]) => {
+    out += `<circle cx="${x}" cy="${y}" r="5" fill="none" stroke="${c}" stroke-width="1.5" opacity="0.5"/>`;
+    out += `<circle cx="${x}" cy="${y}" r="2" fill="${c}" opacity="0.4"/>`;
+  });
 
-  ui._moduleImg.onerror = () => {
-    ui._moduleImg.removeAttribute("src");
-    ui._moduleImg.style.opacity = "0";
-    toast("Module image not found. Check assets/modules naming.");
-  };
-}
-
-/* =========================================================
-   Module image path
-   ========================================================= */
-
-function moduleAssetPath(module, colorway) {
-  const suffix = (colorway && colorway !== "silver") ? `-${colorway}` : "";
-  return `assets/modules/${module}${suffix}.png`;
-}
-
-/* =========================================================
-   Render
-   ========================================================= */
-
-function render() {
-  const ds = deriveState(state);
-
-  ui.stabilityLabel.textContent = stabilityTag(ds.stability);
-  ui.signalLabel.textContent = signalTag(ds.signal);
-  ui.comfortLabel.textContent = comfortTag(ds.comfort);
-
-  ui.badgeName.textContent = (ds.name || "Unnamed").trim() || "Unnamed";
-  ui.badgeMode.textContent = modeBadge(ds);
-
-  updateAttachmentHint();
-
-  const over = clamp01(ds.stability / 100);
-  const sig = clamp01(ds.signal / 100);
-
-  // module image (based on base selections)
-  const src = moduleAssetPath(state.module, state.colorway);
-  if (ui._moduleImg.getAttribute("src") !== src) {
-    ui._moduleImg.style.opacity = "1";
-    ui._moduleImg.src = src;
+  // Neural lines if applicable
+  if (hasNeural) {
+    out += `
+    <path d="M240 110 C240 110 260 130 255 155 C250 175 230 185 235 205" 
+      fill="none" stroke="${c}" stroke-width="2" stroke-dasharray="4 3" opacity="0.7" filter="url(#glowF)"/>
+    <path d="M240 270 C240 270 220 290 225 315 C230 335 250 345 245 360"
+      fill="none" stroke="${c}" stroke-width="1.5" stroke-dasharray="3 4" opacity="0.5" filter="url(#glowF)"/>
+    `;
   }
 
-  // finish filter
-  ui._moduleImg.style.filter = finishFilter(state.finish);
-
-  // keep tint off so PNG colorways show true
-  ui._moduleTint.style.opacity = "0";
-  ui._moduleTint.style.backgroundColor = "transparent";
-
-  // glow (affected by attachment)
-  const glowOp = ((0.08 + sig * 0.52) * (ds._glowMult || 1)).toFixed(2);
-  ui._backGlow.style.background =
-    `radial-gradient(ellipse 68% 62% at 50% 52%, ${state.accentColor}, transparent 72%)`;
-  ui._backGlow.style.opacity = glowOp;
-
-  // overlays (use derived state so HUD matches modifiers)
-  ui._attachSvg.innerHTML = attachmentOverlay(ds);
-  ui._hudSvg.innerHTML = hudOverlay(ds);
-
-  // alert (use stability + thermal adj)
-  if (over > 0.8) {
-    const intensity = (0.2 + (over - 0.8) * 1.5).toFixed(2);
-    ui._alertLayer.style.boxShadow =
-      `inset 0 0 60px rgba(234,87,80,${intensity})`;
-
-    const mitigated = (ds._thermalAdj || 0) < 0;
-    ui._alertLayer.innerHTML = `
-      <div style="position:absolute;bottom:18px;left:18px;color:#ea5750;font-weight:700;font-size:11px;
-                  letter-spacing:0.08em;text-shadow:0 0 8px rgba(234,87,80,0.8);">
-        ⚠ THERMAL LIMIT ${mitigated ? "MITIGATED" : "EXCEEDED"}
-      </div>`;
-  } else {
-    ui._alertLayer.style.boxShadow = "none";
-    ui._alertLayer.innerHTML = "";
-  }
-
-  // stable idle update (no restart jitter)
-  updateIdleParams(ds);
-}
-
-/* =========================================================
-   Finish filters
-   ========================================================= */
-
-function finishFilter(finish) {
-  switch (finish) {
-    case "titanium": return "contrast(0.92) brightness(1.08) sepia(0.18) hue-rotate(-18deg)";
-    case "carbon": return "contrast(1.22) brightness(0.78) saturate(0.7)";
-    case "polymer": return "contrast(0.82) brightness(1.18) saturate(1.1)";
-    default: return "";
-  }
-}
-
-/* =========================================================
-   Attachment SVG (legacy visuals preserved)
-   New attachments can be visual-only for now (returns "")
-   ========================================================= */
-
-function attachmentOverlay(s) {
-  const a = s.accentColor;
-  const ah = hexToRGBA(a, 0.70);
-  const ag = hexToRGBA(a, 0.18);
-
-  switch (s.attachment) {
-    case "led_ring":
-      return `
-        <g>
-          <circle cx="260" cy="270" r="196" fill="none" stroke="${ah}" stroke-width="3" stroke-dasharray="6 10" opacity="0.55"/>
-          <circle cx="260" cy="270" r="196" fill="none" stroke="${a}" stroke-width="1.5" opacity="0.25"/>
-          ${ledNodes(260, 270, 196, 12, a)}
-        </g>`;
-
-    case "carbon_guard":
-      return `
-        <g opacity="0.50">
-          <path d="M148,180 L372,180 L402,270 L372,360 L148,360 L118,270 Z"
-            fill="none" stroke="${a}" stroke-width="2.5" stroke-dasharray="8 5"/>
-          <path d="M148,180 L190,200 L190,340 L148,360" fill="${ag}" stroke="none"/>
-          <path d="M372,180 L330,200 L330,340 L372,360" fill="${ag}" stroke="none"/>
-        </g>`;
-
-    case "tool_mount":
-      return `
-        <g opacity="0.70">
-          <rect x="380" y="240" width="72" height="14" rx="6" fill="${a}"/>
-          <rect x="434" y="210" width="14" height="72" rx="6" fill="${a}"/>
-          <rect x="416" y="200" width="34" height="22" rx="8"
-            fill="rgba(255,255,255,0.25)" stroke="${a}" stroke-width="2"/>
-          <circle cx="443" cy="282" r="9" fill="${a}" opacity="0.80"/>
-          <circle cx="443" cy="282" r="5" fill="rgba(255,255,255,0.6)"/>
-        </g>`;
-
-    case "armor_plate":
-      return `
-        <g opacity="0.55">
-          ${hexPlate(200, 170, a)}
-          ${hexPlate(280, 158, a)}
-          ${hexPlate(320, 182, a)}
-          ${hexPlate(190, 348, a)}
-          ${hexPlate(268, 360, a)}
-          ${hexPlate(315, 340, a)}
-        </g>`;
-
-    case "sleeve":
-      return `
-        <g opacity="0.45">
-          <path d="M165,155 C200,130 320,130 355,155 C330,145 190,145 165,155 Z" fill="${a}"/>
-          <path d="M165,385 C200,410 320,410 355,385 C330,395 190,395 165,385 Z" fill="${a}"/>
-          <line x1="165" y1="155" x2="165" y2="385" stroke="${a}" stroke-width="2.5" stroke-dasharray="5 7"/>
-          <line x1="355" y1="155" x2="355" y2="385" stroke="${a}" stroke-width="2.5" stroke-dasharray="5 7"/>
-        </g>`;
-
-    // new “system” attachments: visuals optional for now
-    case "neural_link":
-    case "bio_sensor":
-    case "env_sensor":
-    case "power_core":
-      return "";
-
-    default:
-      return "";
-  }
-}
-
-function ledNodes(cx, cy, r, count, color) {
-  const nodes = [];
-  for (let i = 0; i < count; i++) {
-    const ang = (i / count) * Math.PI * 2 - Math.PI / 2;
-    const x = cx + Math.cos(ang) * r;
-    const y = cy + Math.sin(ang) * r;
-    nodes.push(`
-      <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5" fill="${color}" opacity="0.90"/>
-      <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="9" fill="${color}" opacity="0.20"/>
-    `);
-  }
-  return nodes.join("");
-}
-
-function hexPlate(cx, cy, color) {
-  const r = 32;
-  const pts = Array.from({ length: 6 }, (_, i) => {
-    const a = (i / 6) * Math.PI * 2 - Math.PI / 6;
-    return `${(cx + Math.cos(a) * r).toFixed(1)},${(cy + Math.sin(a) * r).toFixed(1)}`;
-  }).join(" ");
-  return `<polygon points="${pts}" fill="${hexToRGBA(color, 0.22)}" stroke="${color}"
-    stroke-width="1.8" stroke-linejoin="round"/>`;
-}
-
-/* =========================================================
-   HUD SVG
-   ========================================================= */
-
-function hudOverlay(s) {
-  const accent = s.accentColor;
-  const over = clamp01(s.stability / 100);
-  const signal = clamp01(s.signal / 100);
-  const force = clamp01(s.comfort / 100);
-  const op = (0.08 + signal * 0.60).toFixed(3);
-  const parts = [];
-
-  if (s.uiStyle !== "waveform") {
-    parts.push(`
-      <g opacity="${op}">
-        <circle cx="260" cy="270" r="176" fill="none" stroke="rgba(255,255,255,0.14)" stroke-width="1.5"/>
-        <circle cx="260" cy="270" r="118" fill="none" stroke="rgba(255,255,255,0.10)" stroke-width="1.5"/>
-        <line x1="84"  y1="270" x2="126" y2="270" stroke="rgba(255,255,255,0.20)" stroke-width="1.5"/>
-        <line x1="394" y1="270" x2="436" y2="270" stroke="rgba(255,255,255,0.20)" stroke-width="1.5"/>
-        <line x1="260" y1="94"  x2="260" y2="136" stroke="rgba(255,255,255,0.20)" stroke-width="1.5"/>
-        <line x1="260" y1="404" x2="260" y2="446" stroke="rgba(255,255,255,0.20)" stroke-width="1.5"/>
-        <circle cx="260" cy="270" r="4" fill="${accent}" opacity="0.70"/>
-      </g>`);
-  }
-
-  if (s.uiStyle === "reticle") {
-    parts.push(`
-      <g opacity="${op}">
-        <path d="M84,200 L84,180 L104,180" fill="none" stroke="${accent}" stroke-width="2"/>
-        <path d="M436,200 L436,180 L416,180" fill="none" stroke="${accent}" stroke-width="2"/>
-        <path d="M84,340 L84,360 L104,360" fill="none" stroke="${accent}" stroke-width="2"/>
-        <path d="M436,340 L436,360 L416,360" fill="none" stroke="${accent}" stroke-width="2"/>
-      </g>`);
-  }
-
-  if (s.uiStyle === "diagnostic") {
-    // base diagnostic metrics (slightly influenced by attachment thermal adj)
-    const thermal = Math.round(34 + over * 26 + (s._thermalAdj || 0));
-    const torque = Math.round(60 + force * 40);
-    const battery = Math.round(92 - over * 22 - signal * 10);
-
-    parts.push(`
-      <g opacity="${(+op * 1.3).toFixed(2)}">
-        <rect x="86" y="366" width="148" height="58" rx="10" fill="rgba(0,0,0,0.45)" stroke="${accent}" stroke-width="1" opacity="0.80"/>
-        <text x="100" y="390" font-size="9" fill="rgba(255,255,255,0.55)" letter-spacing="1">THERMAL</text>
-        <text x="100" y="412" font-size="14" font-weight="bold" fill="${accent}">${thermal}°C</text>
-
-        <rect x="246" y="366" width="120" height="58" rx="10" fill="rgba(0,0,0,0.45)" stroke="${accent}" stroke-width="1" opacity="0.80"/>
-        <text x="260" y="390" font-size="9" fill="rgba(255,255,255,0.55)" letter-spacing="1">TORQUE</text>
-        <text x="260" y="412" font-size="14" font-weight="bold" fill="${accent}">${torque}%</text>
-
-        <rect x="378" y="366" width="100" height="58" rx="10" fill="rgba(0,0,0,0.45)" stroke="${accent}" stroke-width="1" opacity="0.80"/>
-        <text x="392" y="390" font-size="9" fill="rgba(255,255,255,0.55)" letter-spacing="1">BATTERY</text>
-        <text x="392" y="412" font-size="14" font-weight="bold" fill="${accent}">${battery}%</text>
-      </g>`);
-  }
-
-  // small “system” extra readouts
-  if (s.uiStyle === "diagnostic" && s.attachment === "bio_sensor") {
-    const hr = Math.round(58 + signal * 44);
-    const spo2 = Math.round(94 + (1 - over) * 5);
-    const stress = Math.round(14 + over * 62);
-
-    parts.push(`
-      <g opacity="${(+op * 1.1).toFixed(2)}">
-        <rect x="86" y="306" width="192" height="44" rx="10" fill="rgba(0,0,0,0.40)" stroke="${accent}" stroke-width="1" opacity="0.78"/>
-        <text x="100" y="332" font-size="10" fill="rgba(255,255,255,0.62)" letter-spacing="1">BIO</text>
-        <text x="140" y="332" font-size="10" fill="${accent}" font-weight="bold">${hr} BPM</text>
-        <text x="210" y="332" font-size="10" fill="rgba(255,255,255,0.62)">SpO₂</text>
-        <text x="250" y="332" font-size="10" fill="${accent}" font-weight="bold">${spo2}%</text>
-        <text x="100" y="346" font-size="9" fill="rgba(255,255,255,0.52)">Stress idx</text>
-        <text x="160" y="346" font-size="9" fill="${accent}" font-weight="bold">${stress}</text>
-      </g>`);
-  }
-
-  if (s.uiStyle !== "minimal" && s.attachment === "env_sensor") {
-    const aqi = Math.round(18 + signal * 120);
-    const uv = Math.round(1 + signal * 9);
-    parts.push(`
-      <g opacity="${(+op * 0.95).toFixed(2)}">
-        <rect x="318" y="92" width="132" height="44" rx="10" fill="rgba(0,0,0,0.35)" stroke="${accent}" stroke-width="1" opacity="0.70"/>
-        <text x="332" y="116" font-size="10" fill="rgba(255,255,255,0.62)" letter-spacing="1">ENV</text>
-        <text x="372" y="116" font-size="10" fill="${accent}" font-weight="bold">AQI ${aqi}</text>
-        <text x="332" y="132" font-size="9" fill="rgba(255,255,255,0.52)">UV</text>
-        <text x="354" y="132" font-size="9" fill="${accent}" font-weight="bold">${uv}</text>
-      </g>`);
-  }
-
-  if (s.uiStyle !== "minimal" && s.attachment === "neural_link") {
-    const sync = Math.round(68 + signal * 30);
-    parts.push(`
-      <g opacity="${(+op * 0.95).toFixed(2)}">
-        <rect x="86" y="92" width="154" height="36" rx="10" fill="rgba(0,0,0,0.35)" stroke="${accent}" stroke-width="1" opacity="0.70"/>
-        <text x="100" y="115" font-size="10" fill="rgba(255,255,255,0.62)" letter-spacing="1">SYNC</text>
-        <text x="146" y="115" font-size="10" fill="${accent}" font-weight="bold">${sync}%</text>
-      </g>`);
-  }
-
-  if (s.uiStyle === "waveform") {
-    parts.push(waveformOverlay(accent, op, over, signal));
-  }
-
-  if (s.uiStyle === "minimal") {
-    parts.push(`
-      <g opacity="${op}">
-        <rect x="86" y="92" width="148" height="36" rx="8" fill="rgba(0,0,0,0.50)" stroke="${accent}" stroke-width="1"/>
-        <text x="100" y="115" font-size="11" fill="rgba(255,255,255,0.60)" letter-spacing="1.5">CALIBRATION</text>
-        <text x="218" y="115" font-size="11" fill="${accent}" font-weight="bold"> OK</text>
-      </g>`);
-  }
-
-  if (over > 0.55) parts.push(glitchLines(over));
-  return parts.join("\n");
-}
-
-function waveformOverlay(accent, opacity, over, signal) {
-  const cx = 260, cy = 270, w = 260, pts = 18;
-  const amp = 14 + over * 30 + signal * 12;
-  const lines = [];
-
-  for (let i = 0; i < pts; i++) {
-    const x = cx - w / 2 + (i / (pts - 1)) * w;
-    const y1 = cy + Math.sin(i * 0.7) * amp;
-    const xn = cx - w / 2 + ((i + 1) / (pts - 1)) * w;
-    const yn = cy + Math.sin((i + 1) * 0.7) * amp;
-    lines.push(`<path d="M${x.toFixed(1)},${cy} C${x.toFixed(1)},${y1.toFixed(1)} ${xn.toFixed(1)},${yn.toFixed(1)} ${xn.toFixed(1)},${cy}"
-      fill="none" stroke="${accent}" stroke-width="2.5" stroke-linecap="round" opacity="${opacity}"/>`);
-  }
-
-  lines.push(`<line x1="${cx - w / 2}" y1="${cy}" x2="${cx + w / 2}" y2="${cy}"
-    stroke="${accent}" stroke-width="1" opacity="${(+opacity * 0.4).toFixed(2)}" stroke-dasharray="4 6"/>`);
-
-  return `<g>${lines.join("")}</g>`;
-}
-
-function glitchLines(over) {
-  const count = Math.round(4 + (over - 0.55) * 22);
-  const lines = [];
-  for (let i = 0; i < count; i++) {
-    const x = 90 + Math.random() * 340;
-    const y = 110 + Math.random() * 320;
-    const w = 16 + Math.random() * 54;
-    const op = (0.06 + (over - 0.55) * 0.50).toFixed(2);
-    lines.push(`<line x1="${x.toFixed(0)}" y1="${y.toFixed(0)}" x2="${(x + w).toFixed(0)}" y2="${y.toFixed(0)}"
-      stroke="rgba(255,255,255,0.70)" stroke-width="1.5" opacity="${op}"/>`);
-  }
-  return `<g>${lines.join("")}</g>`;
-}
-
-/* =========================================================
-   Spec + storage + export
-   ========================================================= */
-
-function generateSpec(s) {
-  const name = (s.name || "Unnamed").trim() || "Unnamed";
-  const over = clamp01(s.stability / 100);
-  const signal = clamp01(s.signal / 100);
-  const force = clamp01(s.comfort / 100);
-
-  const thermal = Math.round(34 + over * 26 + (s._thermalAdj || 0));
-  const battery = Math.round(92 - over * 24 - signal * 10);
-  const torque = Math.round(60 + force * 40);
-
-  const note = (over > 0.78 || force > 0.82)
-    ? "Calibration recommends cooldown after high-load use."
-    : "Calibration within recommended limits.";
-
-  return {
-    title: `${name} — Spec Sheet`,
-    note,
-    html: `<ul>
-      <li>Module: <strong>${cap(s.module)}</strong></li>
-      <li>Colorway: <strong>${cap(s.colorway)}</strong></li>
-      <li>Finish: <strong>${cap(s.finish)}</strong></li>
-      <li>Attachment: <strong>${cap((s._attachmentLabel || s.attachment).replace(/_/g," "))}</strong></li>
-      <li>Tuning: <strong>${modeBadge(s)}</strong></li>
-      <li>Thermal: <strong>${thermal}°C</strong></li>
-      <li>Torque: <strong>${torque}%</strong></li>
-      <li>Battery projection: <strong>${battery}%</strong></li>
-    </ul>`
-  };
-}
-
-async function exportPNG() {
-  const filename = ((state.name || "augment").trim() || "augment")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
-
-  if (typeof html2canvas === "undefined") {
-    toast("html2canvas not loaded — add the CDN script to index.html.");
-    return;
-  }
-
-  toast("Exporting…");
-
-  try {
-    const canvas = await html2canvas(ui.frame, {
-      backgroundColor: "#0a0a0f",
-      scale: 2,
-      useCORS: true,
-      allowTaint: false,
+  // Thermal vents if applicable
+  if (hasThermal) {
+    [[295,100],[295,115],[295,130]].forEach(([x,y]) => {
+      out += `<rect x="${x}" y="${y}" width="18" height="4" rx="2" fill="${c}" opacity="0.35"/>`;
     });
-
-    const a = document.createElement("a");
-    a.download = `${filename}-spec.png`;
-    a.href = canvas.toDataURL("image/png");
-    a.click();
-    toast("Exported PNG.");
-  } catch (err) {
-    console.error(err);
-    toast("Export failed. Try VS Code Live Server.");
   }
-}
 
-function saveState(s) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(s));
-}
+  // LED accent ring (wrist)
+  out += `
+  <rect x="196" y="375" width="88" height="30" rx="12" fill="none" stroke="${c}" stroke-width="2" opacity="0.8" filter="url(#softGlow)"/>
+  `;
 
-function loadState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
+  // Finger lines
+  for (let i = 0; i < 4; i++) {
+    const fx = 198 + i * 26;
+    out += `<rect x="${fx}" y="412" width="14" height="42" rx="7" fill="url(#bodyGrad)" stroke="${c}" stroke-width="1" opacity="0.8"/>`;
   }
-}
+  out += `<rect x="295" y="418" width="12" height="32" rx="6" fill="url(#bodyGrad)" stroke="${c}" stroke-width="1" opacity="0.8"/>`;
 
-/* =========================================================
-   Random + reactions + toast
-   ========================================================= */
-
-function randomState() {
-  const accents = ["#3a7bd5", "#1fb6ff", "#2dd4bf", "#7c3aed", "#ef4444", "#0ea5e9", "#f59e0b"];
-  const modules = ["arm", "hand", "leg", "foot", "eye", "spine"];
-  const attachments = Object.keys(ATTACHMENTS);
-  const styles = ["reticle", "diagnostic", "waveform", "minimal"];
-  const finishes = ["ceramic", "titanium", "carbon", "polymer"];
-  const colorways = ["silver", "black", "blue", "pink"];
-
-  const module = pickOne(modules);
-  // pick a valid attachment for that module
-  const validAttachments = attachments.filter(a => isAttachmentAllowed(module, a));
-  const attachment = pickOne(validAttachments.length ? validAttachments : ["none"]);
-
-  return {
-    ...defaultState(),
-    module,
-    attachment,
-    colorway: pickOne(colorways),
-    accentColor: pickOne(accents),
-    uiStyle: pickOne(styles),
-    finish: pickOne(finishes),
-    stability: randInt(10, 92),
-    signal: randInt(8, 90),
-    comfort: randInt(10, 92),
-  };
-}
-
-function reactions(s) {
-  const over = clamp01(s.stability / 100);
-  const signal = clamp01(s.signal / 100);
-  const force = clamp01(s.comfort / 100);
-
-  const out = [];
-  if (over > 0.80) out.push("Overclock engaged. Watch thermal drift.");
-  else if (over < 0.30) out.push("Stabilizers active. Smooth response curve.");
-
-  if (signal > 0.70) out.push("Signal profile high. Visibility increased.");
-  else if (signal < 0.30) out.push("Stealth profile. Minimal signature.");
-
-  if (force > 0.75) out.push("Torque bias high. Recommend soft-tissue checks.");
-  else if (force < 0.35) out.push("Comfort bias. Adaptive damping enabled.");
-
-  out.push(`Attachment: ${(s._attachmentLabel || s.attachment).replace(/_/g," ")}`);
-  out.push("Calibration snapshot recorded.");
   return out;
 }
 
-function toast(msg) {
-  ui.toast.textContent = msg;
-  ui.toast.hidden = false;
+function renderLeg(c, hasThermal, hasNeural, hasStealth, modules) {
+  const opacity = hasStealth ? 0.75 : 1;
+  let out = `\n  <!-- LEG UNIT -->`;
 
-  ui.toast.animate(
-    [{ opacity: 0, transform: "translateY(-6px)" }, { opacity: 1, transform: "translateY(0)" }],
-    { duration: 160, easing: "ease-out" }
-  );
+  // Thigh
+  out += `<rect x="180" y="60" width="120" height="160" rx="24" fill="url(#bodyGrad)" stroke="${c}" stroke-width="1.5" opacity="${opacity}"/>`;
+  // Knee
+  out += `<ellipse cx="240" cy="235" rx="52" ry="32" fill="url(#bodyGrad)" stroke="${c}" stroke-width="2" opacity="${opacity}" filter="url(#glowF)"/>`;
+  // Lower leg
+  out += `<rect x="185" y="262" width="110" height="140" rx="20" fill="url(#bodyGrad)" stroke="${c}" stroke-width="1.5" opacity="${opacity}"/>`;
+  // Ankle
+  out += `<rect x="194" y="396" width="92" height="28" rx="12" fill="url(#bodyGrad)" stroke="${c}" stroke-width="1.5" opacity="${opacity}"/>`;
+  // Foot
+  out += `<rect x="170" y="418" width="130" height="44" rx="16" fill="url(#bodyGrad)" stroke="${c}" stroke-width="1.5" opacity="${opacity}"/>`;
 
-  clearTimeout(toast._t);
-  toast._t = setTimeout(() => {
-    ui.toast.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 220, easing: "ease-in" })
-      .onfinish = () => { ui.toast.hidden = true; };
-  }, 2000);
+  // Panel lines on thigh
+  out += `
+  <line x1="198" y1="100" x2="282" y2="100" stroke="${c}" stroke-width="1" opacity="0.3"/>
+  <line x1="194" y1="130" x2="286" y2="130" stroke="${c}" stroke-width="0.5" opacity="0.2"/>
+  <line x1="194" y1="160" x2="286" y2="160" stroke="${c}" stroke-width="0.5" opacity="0.2"/>
+  `;
+  out += `<rect x="208" y="94" width="64" height="6" rx="3" fill="${c}" opacity="0.6"/>`;
+
+  // Knee detail circles
+  out += `<circle cx="240" cy="235" r="18" fill="none" stroke="${c}" stroke-width="2.5" opacity="0.9" filter="url(#softGlow)"/>`;
+  out += `<circle cx="240" cy="235" r="8" fill="${c}" opacity="0.5"/>`;
+  out += `<circle cx="240" cy="235" r="3" fill="${c}" opacity="0.9"/>`;
+
+  // Lower leg panel
+  out += `
+  <line x1="200" y1="300" x2="275" y2="300" stroke="${c}" stroke-width="0.5" opacity="0.2"/>
+  <line x1="200" y1="330" x2="275" y2="330" stroke="${c}" stroke-width="0.5" opacity="0.2"/>
+  <rect x="208" y="275" width="64" height="5" rx="2.5" fill="${c}" opacity="0.5"/>
+  `;
+
+  if (hasNeural) {
+    out += `<path d="M240 80 L240 220" stroke="${c}" stroke-width="1.5" stroke-dasharray="5 4" opacity="0.5" filter="url(#glowF)"/>`;
+    out += `<path d="M240 265 L240 390" stroke="${c}" stroke-width="1" stroke-dasharray="4 5" opacity="0.4" filter="url(#glowF)"/>`;
+  }
+
+  if (hasThermal) {
+    [[295,110],[295,125],[295,140]].forEach(([x,y]) => {
+      out += `<rect x="${x}" y="${y}" width="14" height="4" rx="2" fill="${c}" opacity="0.35"/>`;
+    });
+  }
+
+  return out;
 }
 
-/* =========================================================
-   Color utils
-   ========================================================= */
+function renderHUD(c, modules, inp) {
+  const goals = inp.goals;
+  const tags = modules.map(m => MODULES[m]?.tag).filter(Boolean);
+  const ps = computeProfileScore(inp);
+  const risk = computeRiskIndex(inp);
 
-function hexToRgb(hex) {
-  const h = hex.replace("#", "").trim();
-  const v = h.length === 3 ? h.split("").map(x => x + x).join("") : h;
-  const n = parseInt(v, 16);
-  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+  let hud = `\n  <!-- HUD OVERLAY -->`;
+
+  // Top-left status box
+  hud += `
+  <g opacity="0.85">
+    <rect x="22" y="22" width="140" height="62" rx="8" fill="rgba(0,0,0,0.55)" stroke="${c}" stroke-width="0.8" opacity="0.6"/>
+    <text x="32" y="40" font-size="8" fill="${c}" font-family="monospace" letter-spacing="1" opacity="0.7">AUGMENT SYSTEM</text>
+    <text x="32" y="56" font-size="10" fill="${c}" font-family="monospace" font-weight="bold">ACTIVE</text>
+    <text x="32" y="72" font-size="8" fill="rgba(235,240,255,0.55)" font-family="monospace">SYS OK — ${tags.length} MOD</text>
+  </g>`;
+
+  // Bottom-right module tags
+  const tagList = [...new Set(tags)];
+  tagList.forEach((tag, i) => {
+    const y = 440 - i * 18;
+    hud += `
+    <rect x="330" y="${y-11}" width="70" height="14" rx="3" fill="rgba(0,0,0,0.40)" stroke="${c}" stroke-width="0.6" opacity="0.5"/>
+    <text x="340" y="${y}" font-size="8" fill="${c}" font-family="monospace" letter-spacing="1" opacity="0.7">${tag}</text>`;
+  });
+
+  // Signal strength bars (top-right)
+  hud += `
+  <g opacity="0.7">
+    <rect x="348" y="22" width="110" height="50" rx="8" fill="rgba(0,0,0,0.50)" stroke="${c}" stroke-width="0.7" opacity="0.5"/>
+    <text x="360" y="38" font-size="8" fill="rgba(235,240,255,0.55)" font-family="monospace" letter-spacing="1">SCORE</text>
+    <text x="360" y="54" font-size="14" fill="${c}" font-family="monospace" font-weight="bold">${ps}</text>
+    <text x="400" y="54" font-size="8" fill="rgba(235,240,255,0.40)" font-family="monospace">/100</text>
+  </g>`;
+
+  // Risk indicator
+  if (risk > 4) {
+    hud += `
+    <g opacity="0.8">
+      <rect x="22" y="96" width="120" height="24" rx="6" fill="rgba(255,74,106,0.10)" stroke="#ff4a6a" stroke-width="0.8"/>
+      <text x="32" y="112" font-size="8" fill="#ff4a6a" font-family="monospace" letter-spacing="1">RISK INDEX: ${risk}/10</text>
+    </g>`;
+  }
+
+  // Crosshair reticle
+  hud += `
+  <g opacity="0.18" filter="url(#glowF)">
+    <circle cx="240" cy="240" r="100" fill="none" stroke="${c}" stroke-width="0.5" stroke-dasharray="6 8"/>
+    <circle cx="240" cy="240" r="60" fill="none" stroke="${c}" stroke-width="0.5" stroke-dasharray="3 6"/>
+    <line x1="130" y1="240" x2="160" y2="240" stroke="${c}" stroke-width="0.5"/>
+    <line x1="320" y1="240" x2="350" y2="240" stroke="${c}" stroke-width="0.5"/>
+    <line x1="240" y1="130" x2="240" y2="160" stroke="${c}" stroke-width="0.5"/>
+    <line x1="240" y1="320" x2="240" y2="350" stroke="${c}" stroke-width="0.5"/>
+  </g>`;
+
+  return hud;
 }
 
-function hexToRGBA(hex, a) {
-  const c = hexToRgb(hex);
-  return `rgba(${c.r},${c.g},${c.b},${a.toFixed(3)})`;
+/* ════════════════════════════════════════════════
+   RENDER RESULTS
+════════════════════════════════════════════════ */
+function renderResults(result, inp) {
+  const { selected, reasoning, stats, buildName, accent } = result;
+
+  // Badge
+  document.getElementById('configName').textContent = buildName;
+  document.getElementById('resultBadge1').textContent = inp.goals[0]?.toUpperCase() || 'LONGEVITY';
+  document.getElementById('resultBadge2').textContent = cap(inp.work);
+
+  // SVG
+  document.getElementById('svgWrap').innerHTML = generateSVG(selected, accent, inp);
+
+  // Stats
+  const statMap = {
+    'stat-neural': stats.neural, 'stat-stab': stats.stab,
+    'stat-thermal': stats.thermal, 'stat-score': stats.score,
+  };
+  const barMap = {
+    'bar-neural': stats.neural, 'bar-stab': stats.stab,
+    'bar-thermal': stats.thermal, 'bar-score': stats.score,
+  };
+  Object.entries(statMap).forEach(([id, v]) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = '+' + v + '%';
+  });
+  setTimeout(() => {
+    Object.entries(barMap).forEach(([id, v]) => {
+      const el = document.getElementById(id);
+      if (el) el.style.width = Math.min(v, 100) + '%';
+    });
+  }, 100);
+
+  // Modules breakdown
+  const mb = document.getElementById('modulesBreakdown');
+  mb.innerHTML = selected.map(key => {
+    const m = MODULES[key];
+    const dotColor = m.color;
+    return `<div class="module-row">
+      <div class="module-dot ${dotColor === 'amber' ? 'amber' : dotColor === 'green' ? 'green' : ''}"></div>
+      <div class="module-info">
+        <div class="module-name">${m.name}</div>
+        <div class="module-desc">${m.desc}</div>
+      </div>
+      <span class="module-tag">${m.tag}</span>
+    </div>`;
+  }).join('');
+
+  // Reasoning
+  const rl = document.getElementById('reasoningLog');
+  rl.innerHTML = reasoning.map(r => `<div class="reasoning-line">${r}</div>`).join('');
+
+  // Override grid
+  const og = document.getElementById('overrideGrid');
+  og.innerHTML = Object.entries(MODULES).map(([key, m]) => {
+    const isSelected = selected.includes(key);
+    const bonus = m.statBonus;
+    const delta = bonus.neural + bonus.stab + bonus.thermal;
+    return `<div class="override-module ${isSelected ? 'selected' : ''}" data-key="${key}" onclick="toggleOverride(this)">
+      <div class="om-header">
+        <div class="om-name">${m.name}</div>
+        <div class="om-check"></div>
+      </div>
+      <div class="om-stat">${m.tag} — ${m.desc.substring(0,40)}…</div>
+      <div class="om-delta">${delta > 0 ? '+' : ''}${delta} combined delta</div>
+    </div>`;
+  }).join('');
+
+  updateOverrideStats();
+
+  // Show sections
+  const r = document.getElementById('results');
+  const ov = document.getElementById('override');
+  r.classList.add('visible');
+  ov.classList.add('visible');
+
+  // Hero metrics update
+  document.getElementById('heroM1').textContent = Math.max(4, 18 - stats.neural / 8) + 'ms';
+  document.getElementById('heroM2').textContent = stats.stab + '%';
+  document.getElementById('heroM3').textContent = stats.score;
+  document.querySelector('#hero .metric-card:nth-child(3) .delta').textContent = buildName;
+
+  setTimeout(() => r.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200);
 }
+
+/* ════════════════════════════════════════════════
+   OVERRIDE MODE
+════════════════════════════════════════════════ */
+function toggleOverride(el) {
+  el.classList.toggle('selected');
+  updateOverrideStats();
+}
+
+function updateOverrideStats() {
+  const active = Array.from(document.querySelectorAll('.override-module.selected'))
+    .map(el => MODULES[el.dataset.key])
+    .filter(Boolean);
+
+  const score = active.reduce((s, m) => s + m.statBonus.score, 0);
+  const stab = active.reduce((s, m) => s + m.statBonus.stab, 0);
+
+  document.getElementById('ov-score').textContent = '+' + score + '%';
+  document.getElementById('ov-stab').textContent = '+' + stab + '%';
+  setTimeout(() => {
+    document.getElementById('ov-bar-score').style.width = Math.min(score, 100) + '%';
+    document.getElementById('ov-bar-stab').style.width = Math.min(stab, 100) + '%';
+  }, 50);
+}
+
+/* ════════════════════════════════════════════════
+   RUN BUTTON
+════════════════════════════════════════════════ */
+document.getElementById('runDiagBtn').addEventListener('click', () => {
+  const inp = getLiveInputs();
+  runProcessingAnimation(() => {
+    const result = runAIEngine(inp);
+    renderResults(result, inp);
+  });
+});
+
+/* ════════════════════════════════════════════════
+   UTILITIES
+════════════════════════════════════════════════ */
+function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+function scrollTo(sel) { document.querySelector(sel)?.scrollIntoView({ behavior: 'smooth' }); }
+
+/* ════════════════════════════════════════════════
+   REVEAL OBSERVER
+════════════════════════════════════════════════ */
+const revealObs = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); });
+}, { threshold: 0.1 });
+document.querySelectorAll('.reveal').forEach(el => revealObs.observe(el));
